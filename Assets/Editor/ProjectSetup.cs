@@ -1,3 +1,4 @@
+using System.Linq;
 using Tikatooka;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -13,6 +14,21 @@ namespace Tikatooka.Editor
         [MenuItem("Tikatooka/Create Main Scene")]
         public static void CreateMainScene()
         {
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(MainScenePath) != null
+                && !EditorUtility.DisplayDialog(
+                    "Main 씬 다시 만들기",
+                    "기존 Main 씬을 새 씬으로 덮어씁니다. 계속할까요?",
+                    "덮어쓰기",
+                    "취소"))
+            {
+                return;
+            }
+
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            {
+                return;
+            }
+
             EditorSettings.defaultBehaviorMode = EditorBehaviorMode.Mode2D;
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -21,11 +37,14 @@ namespace Tikatooka.Editor
             var controllerObject = new GameObject("Dice Board Game");
             controllerObject.AddComponent<DiceBoardGameController>();
 
+            EnsureBootCover.CreateOrUpdate(scene);
+
             EditorSceneManager.SaveScene(scene, MainScenePath);
-            EditorBuildSettings.scenes = new[]
-            {
-                new EditorBuildSettingsScene(MainScenePath, true)
-            };
+            var otherScenes = EditorBuildSettings.scenes
+                .Where(sceneEntry => sceneEntry.path != MainScenePath);
+            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(MainScenePath, true) }
+                .Concat(otherScenes)
+                .ToArray();
 
             PlayerSettings.companyName = "Tikatooka";
             PlayerSettings.productName = "Tikatooka Dice Board";
@@ -45,7 +64,7 @@ namespace Tikatooka.Editor
             camera.orthographic = true;
             camera.orthographicSize = 5f;
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color32(236, 238, 234, 255);
+            camera.backgroundColor = new Color32(13, 39, 34, 255);
 
             cameraObject.AddComponent<AudioListener>();
         }

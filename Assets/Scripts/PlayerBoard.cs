@@ -212,21 +212,18 @@ namespace Tikatooka
 
         public int CalculateSectionScoreUnits(int section)
         {
-            var counts = new int[7];
-
-            for (var column = 0; column < size; column++)
-            {
-                var value = Cells[section, column];
-                if (value > 0 && value < counts.Length)
-                {
-                    counts[value]++;
-                }
-            }
-
             var scoreUnits = 0;
-            for (var value = 1; value < counts.Length; value++)
+            for (var value = 1; value <= 6; value++)
             {
-                var count = counts[value];
+                var count = 0;
+                for (var column = 0; column < size; column++)
+                {
+                    if (Cells[section, column] == value)
+                    {
+                        count++;
+                    }
+                }
+
                 if (count > 0)
                 {
                     var baseScore = value * count;
@@ -236,6 +233,86 @@ namespace Tikatooka
             }
 
             return scoreUnits;
+        }
+
+        public int GetMatchingGroupSize(int row, int column)
+        {
+            return TryGetMatchingGroupRange(row, column, out var startIndex, out var endIndex)
+                ? endIndex - startIndex + 1
+                : 0;
+        }
+
+        public int CalculateSectionScoreUnitsWithoutMatchingGroup(int row, int column)
+        {
+            if (!TryGetMatchingGroupRange(row, column, out var startIndex, out var endIndex))
+            {
+                return CalculateSectionScoreUnits(row);
+            }
+
+            var scoreUnits = 0;
+            for (var value = 1; value <= 6; value++)
+            {
+                var count = 0;
+                for (var sequenceIndex = 0; sequenceIndex < size; sequenceIndex++)
+                {
+                    if (sequenceIndex >= startIndex && sequenceIndex <= endIndex)
+                    {
+                        continue;
+                    }
+
+                    var targetColumn = GetColumnForSequenceIndex(sequenceIndex);
+                    if (Cells[row, targetColumn] == value)
+                    {
+                        count++;
+                    }
+                }
+
+                if (count > 0)
+                {
+                    var baseScore = value * count;
+                    var matchingBonus = value * (count - 1);
+                    scoreUnits += (baseScore + matchingBonus) * 2;
+                }
+            }
+
+            return scoreUnits;
+        }
+
+        private bool TryGetMatchingGroupRange(int row, int column, out int startIndex, out int endIndex)
+        {
+            var value = Cells[row, column];
+            if (value == 0 || AttackProtected[row, column])
+            {
+                startIndex = -1;
+                endIndex = -1;
+                return false;
+            }
+
+            startIndex = GetSequenceIndexForColumn(column);
+            while (startIndex > 0)
+            {
+                var previousColumn = GetColumnForSequenceIndex(startIndex - 1);
+                if (Cells[row, previousColumn] != value || AttackProtected[row, previousColumn])
+                {
+                    break;
+                }
+
+                startIndex--;
+            }
+
+            endIndex = GetSequenceIndexForColumn(column);
+            while (endIndex < size - 1)
+            {
+                var nextColumn = GetColumnForSequenceIndex(endIndex + 1);
+                if (Cells[row, nextColumn] != value || AttackProtected[row, nextColumn])
+                {
+                    break;
+                }
+
+                endIndex++;
+            }
+
+            return true;
         }
 
         private int GroupMatchingDice(int row, int placedValue)

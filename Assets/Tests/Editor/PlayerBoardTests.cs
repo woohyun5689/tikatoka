@@ -67,6 +67,18 @@ namespace Tikatooka.Tests
             Assert.That(board.CalculateSectionScoreUnits(0), Is.EqualTo(28));
         }
 
+        [Test]
+        public void AttackPreviewRemovesOnlyTheSelectedMatchingGroup()
+        {
+            var board = new PlayerBoard(0, 3);
+            board.Place(0, 2, 3, false);
+            board.Place(0, 1, 3, false);
+            board.Place(0, 0, 5, false);
+
+            Assert.That(board.GetMatchingGroupSize(0, 2), Is.EqualTo(2));
+            Assert.That(board.CalculateSectionScoreUnitsWithoutMatchingGroup(0, 2), Is.EqualTo(10));
+        }
+
         [TestCase(0, false)]
         [TestCase(1, true)]
         [TestCase(2, true)]

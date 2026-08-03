@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
@@ -12,6 +13,11 @@ namespace Tikatooka
         private const int BoardSize = 5;
         private const int AiPlayerIndex = 1;
         private const int AiSmallBonusDieMaxValue = 3;
+        private const string BootCoverName = "Tikatooka Boot Cover";
+        private const int DiceStageLayer = 31;
+        private const int DiceRenderWidth = 960;
+        private const int DiceRenderHeight = 540;
+        private const float BootFadeDuration = 0.23f;
 
         private enum MatchMode
         {
@@ -29,6 +35,22 @@ namespace Tikatooka
         private const float EmergencyBoundsMinZ = -1.4f;
         private const float EmergencyBoundsMaxZ = 1.4f;
         private const float EmergencyBoundsMinY = -0.8f;
+        private const float CupMaxLinearSpeed = 24f;
+        private const float CupMaxAngularSpeed = 2400f;
+        private const float CupDieCenterRadius = 0.285f;
+        private const float CupDragMinX = -1.45f;
+        private const float CupDragMaxX = 1.45f;
+        private const float CupDragMinZ = -0.8f;
+        private const float CupDragMaxZ = 0.8f;
+        private const float DieLinearDamping = 0.06f;
+        private const float DieAngularDamping = 0.04f;
+        private const float PlayableDieMinX = -1.65f;
+        private const float PlayableDieMaxX = 0.93f;
+        private const float PlayableDieMinZ = -0.72f;
+        private const float PlayableDieMaxZ = 0.76f;
+
+        private static readonly WaitForEndOfFrame WaitForPresentedFrame = new WaitForEndOfFrame();
+        private static readonly WaitForFixedUpdate WaitForPhysicsStep = new WaitForFixedUpdate();
 
         private static readonly Color PageColor = new Color32(236, 238, 234, 255);
         private static readonly Color PanelColor = new Color32(250, 250, 247, 255);
@@ -47,11 +69,19 @@ namespace Tikatooka
         private static readonly Color AttackTargetCellColor = new Color32(236, 92, 78, 255);
         private static readonly Color ButtonColor = new Color32(239, 127, 64, 255);
         private static readonly Color DisabledButtonColor = new Color32(192, 195, 190, 255);
+        private static readonly Color ArtDecoCream = new Color32(247, 236, 206, 255);
+        private static readonly Color ArtDecoMutedGold = new Color32(198, 181, 133, 255);
 
         private static readonly Color[] PlayerAccentColors =
         {
             new Color32(205, 74, 68, 255),
             new Color32(60, 126, 199, 255)
+        };
+
+        private static readonly Color[] PlayerLabelColors =
+        {
+            new Color32(170, 57, 52, 255),
+            new Color32(40, 100, 166, 255)
         };
 
         private static readonly Color[] DieColors =
@@ -75,6 +105,35 @@ namespace Tikatooka
         private Sprite scoreBadgeSprite;
         private Sprite diceFaceSprite;
         private Sprite dicePipSprite;
+        private Sprite boardPatternSprite;
+        private Sprite diceCeramicSprite;
+        private Sprite panelParchmentSprite;
+        private Sprite mainBoardBackdropSprite;
+        private Sprite scoreTowerSprite;
+        private Sprite controlPlaqueSprite;
+        private Sprite buttonPrimarySprite;
+        private Sprite buttonSecondarySprite;
+        private Sprite buttonPvpSprite;
+        private Sprite buttonPveSprite;
+        private Sprite cellPlateSprite;
+        private Sprite scoreMedallionSprite;
+        private Sprite diceFaceArtSprite;
+        private Texture2D boardPatternTexture;
+        private Texture2D diceCeramicTexture;
+        private Texture2D panelParchmentTexture;
+        private Texture2D mainBoardBackdropTexture;
+        private Texture2D scoreTowerTexture;
+        private Texture2D controlPlaqueTexture;
+        private Texture2D buttonPrimaryTexture;
+        private Texture2D buttonSecondaryTexture;
+        private Texture2D buttonPvpTexture;
+        private Texture2D buttonPveTexture;
+        private Texture2D cellPlateTexture;
+        private Texture2D scoreMedallionTexture;
+        private Texture2D diceFaceArtTexture;
+        private Texture2D worldDieSurfaceTexture;
+        private Texture2D walnutTableTexture;
+        private Texture2D cupLeatherTexture;
         private Image headerImage;
         private Text statusText;
         private Image matchScoreImage;
@@ -93,6 +152,9 @@ namespace Tikatooka
         private Text resultDetailText;
         private GameObject modeSelectionOverlay;
         private GameObject diceOverlay;
+        private GameObject boardUiRoot;
+        private RawImage diceOutputImage;
+        private GameObject diceInputSurface;
         private RenderTexture diceRenderTexture;
         private Camera diceCamera;
         private Transform diceStageRoot;
@@ -111,7 +173,6 @@ namespace Tikatooka
         private Material dieMaterial;
         private Material pipMaterial;
         private Material tableMaterial;
-        private Material woodGrainMaterial;
         private Material feltMaterial;
         private Material trayRimMaterial;
         private Material trayHighlightMaterial;
@@ -119,6 +180,19 @@ namespace Tikatooka
         private Text rollButtonText;
         private Button resetButton;
         private Button modeButton;
+        private Button pvpModeButton;
+        private Button pveModeButton;
+        private Button resultResetButton;
+        private GameObject bootCover;
+        private Coroutine bootCoverRoutine;
+        private bool bootCoverInputBlocked;
+        private Camera[] maskedSceneCameras;
+        private int[] originalSceneCameraMasks;
+        private int originalVSyncCount;
+        private int originalTargetFrameRate;
+        private float originalFixedDeltaTime;
+        private float originalMaximumDeltaTime;
+        private bool runtimeSettingsApplied;
 
         private int activePlayer;
         private int currentDie;
@@ -128,7 +202,13 @@ namespace Tikatooka
         private int shakeDirectionChanges;
         private Vector2 lastShakeDirection;
         private Vector2 cupDragStartScreenPosition;
+        private Vector2 polledCupPointerPosition;
+        private Vector2 lastProcessedCupPointerPosition;
         private Vector3 cupDragStartLocalPosition;
+        private Vector3 cupPointerGrabOffset;
+        private int lastCupDragInputFrame = -1;
+        private bool hasPolledCupPointerPosition;
+        private bool mouseCupDragActive;
         private Vector3 cupTargetLocalPosition = CupHomePosition;
         private Quaternion cupTargetLocalRotation = Quaternion.identity;
         private bool hasPendingDie;
@@ -145,6 +225,8 @@ namespace Tikatooka
         private bool placementComplete;
         private bool gameStarted;
         private bool worldDieHasTouchedSurface;
+        private bool worldDieAttachedToCup;
+        private Quaternion dieInCupBaseLocalRotation = Quaternion.identity;
         private MatchMode currentMode = MatchMode.Pve;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -161,24 +243,334 @@ namespace Tikatooka
 
         private void Awake()
         {
+            originalVSyncCount = QualitySettings.vSyncCount;
+            originalTargetFrameRate = Application.targetFrameRate;
+            originalFixedDeltaTime = Time.fixedDeltaTime;
+            originalMaximumDeltaTime = Time.maximumDeltaTime;
+            runtimeSettingsApplied = true;
+            QualitySettings.vSyncCount = 1;
+            Application.targetFrameRate = -1;
+            Time.fixedDeltaTime = 1f / 60f;
+            Time.maximumDeltaTime = 0.05f;
+            bootCover = FindBootCoverInScene();
+            PrepareBootCover();
             defaultFont = LoadInterfaceFont(out ownsDefaultFont);
             scoreBadgeSprite = CreateCircleSprite(96);
             diceFaceSprite = CreateRoundedRectSprite(96, 13);
             dicePipSprite = CreateCircleSprite(32);
+            LoadGeneratedArt();
             BuildInterface();
             StartNewGame();
             ShowModeSelection();
+            Canvas.ForceUpdateCanvases();
+            bootCoverRoutine = StartCoroutine(HideBootCoverRoutine());
         }
 
-        private void FixedUpdate()
+        private GameObject FindBootCoverInScene()
         {
-            if (diceCupBody == null || diceStageRoot == null)
+            foreach (var root in gameObject.scene.GetRootGameObjects())
+            {
+                if (root.name == BootCoverName)
+                {
+                    return root;
+                }
+            }
+
+            return GameObject.Find(BootCoverName);
+        }
+
+        private void PrepareBootCover()
+        {
+            bootCoverInputBlocked = bootCover != null;
+            if (bootCover == null)
             {
                 return;
             }
 
-            diceCupBody.MovePosition(diceStageRoot.TransformPoint(cupTargetLocalPosition));
-            diceCupBody.MoveRotation(diceStageRoot.rotation * cupTargetLocalRotation);
+            bootCover.SetActive(true);
+            var coverRect = bootCover.GetComponent<RectTransform>();
+            if (coverRect != null)
+            {
+                coverRect.localScale = Vector3.one;
+                coverRect.localRotation = Quaternion.identity;
+            }
+
+            var coverGroup = bootCover.GetComponent<CanvasGroup>();
+            if (coverGroup != null)
+            {
+                coverGroup.alpha = 1f;
+                coverGroup.blocksRaycasts = true;
+            }
+
+            if (bootCover.GetComponent<GraphicRaycaster>() == null)
+            {
+                bootCover.AddComponent<GraphicRaycaster>();
+            }
+
+            var coverGraphics = bootCover.GetComponentsInChildren<Graphic>(true);
+            for (var index = 0; index < coverGraphics.Length; index++)
+            {
+                coverGraphics[index].raycastTarget = true;
+            }
+        }
+
+        private IEnumerator HideBootCoverRoutine()
+        {
+            if (bootCover == null)
+            {
+                bootCoverInputBlocked = false;
+                bootCoverRoutine = null;
+                yield break;
+            }
+
+            var coverGroup = bootCover.GetComponent<CanvasGroup>();
+            var restoreDiceOverlay = diceOverlay != null && diceOverlay.activeSelf;
+            if (diceOverlay != null)
+            {
+                diceOverlay.SetActive(true);
+            }
+
+            var restoreDiceStage = diceStageRoot != null && diceStageRoot.gameObject.activeSelf;
+            if (diceStageRoot != null)
+            {
+                diceStageRoot.gameObject.SetActive(true);
+            }
+
+            if (diceCamera != null)
+            {
+                diceCamera.enabled = true;
+            }
+
+            yield return WaitForPresentedFrame;
+            yield return WaitForPresentedFrame;
+
+            if (diceCamera != null)
+            {
+                diceCamera.enabled = restoreDiceOverlay;
+            }
+
+            if (diceOverlay != null && !restoreDiceOverlay)
+            {
+                diceOverlay.SetActive(false);
+            }
+
+            if (diceStageRoot != null && !restoreDiceStage)
+            {
+                diceStageRoot.gameObject.SetActive(false);
+            }
+
+            Canvas.ForceUpdateCanvases();
+            var fadeElapsed = 0f;
+            while (bootCover != null && fadeElapsed < BootFadeDuration)
+            {
+                fadeElapsed += Time.unscaledDeltaTime;
+                if (coverGroup != null)
+                {
+                    var progress = Mathf.Clamp01(fadeElapsed / BootFadeDuration);
+                    coverGroup.alpha = 1f - Mathf.SmoothStep(0f, 1f, progress);
+                }
+
+                yield return WaitForPresentedFrame;
+            }
+
+            if (bootCover != null)
+            {
+                if (coverGroup != null)
+                {
+                    coverGroup.alpha = 0f;
+                    coverGroup.blocksRaycasts = false;
+                }
+
+                bootCover.SetActive(false);
+            }
+
+            bootCoverInputBlocked = false;
+            bootCoverRoutine = null;
+            FocusModeSelection();
+        }
+
+        private void StopGameplayCoroutines()
+        {
+            var finishBootCover = bootCoverRoutine != null;
+            StopAllCoroutines();
+            bootCoverRoutine = null;
+            if (finishBootCover)
+            {
+                CompleteBootCoverImmediately();
+            }
+        }
+
+        private void CompleteBootCoverImmediately()
+        {
+            if (bootCover == null)
+            {
+                bootCoverInputBlocked = false;
+                return;
+            }
+
+            var coverGroup = bootCover.GetComponent<CanvasGroup>();
+            if (coverGroup != null)
+            {
+                coverGroup.alpha = 0f;
+                coverGroup.blocksRaycasts = false;
+            }
+
+            bootCover.SetActive(false);
+            bootCoverInputBlocked = false;
+            FocusModeSelection();
+        }
+
+        private void FixedUpdate()
+        {
+            if (diceCupBody == null || diceStageRoot == null || !diceStageRoot.gameObject.activeInHierarchy)
+            {
+                return;
+            }
+
+            var targetPosition = diceStageRoot.TransformPoint(cupTargetLocalPosition);
+            var targetRotation = diceStageRoot.rotation * cupTargetLocalRotation;
+            var cupAtTarget = (diceCupBody.position - targetPosition).sqrMagnitude < 0.000001f
+                && Quaternion.Angle(diceCupBody.rotation, targetRotation) < 0.05f;
+            if (!cupAtTarget)
+            {
+                var nextPosition = Vector3.MoveTowards(
+                    diceCupBody.position,
+                    targetPosition,
+                    CupMaxLinearSpeed * Time.fixedDeltaTime);
+                var nextRotation = Quaternion.RotateTowards(
+                    diceCupBody.rotation,
+                    targetRotation,
+                    CupMaxAngularSpeed * Time.fixedDeltaTime);
+                diceCupBody.MovePosition(nextPosition);
+                diceCupBody.MoveRotation(nextRotation);
+            }
+
+            UpdateAttachedWorldDiePose();
+        }
+
+        private void UpdateAttachedWorldDiePose()
+        {
+            if (!worldDieAttachedToCup
+                || worldDieBody == null
+                || !worldDieBody.isKinematic
+                || diceCupTransform == null)
+            {
+                return;
+            }
+
+            var shakeAmount = isCupDragging && isWaitingForCupShake
+                ? Mathf.Clamp01(shakeEnergy / 1.25f)
+                : 0f;
+            var phase = Time.fixedTime * 22f;
+            var localOffset = DieInCupOffset + new Vector3(
+                Mathf.Sin(phase) * 0.065f * shakeAmount,
+                Mathf.Abs(Mathf.Sin(phase * 1.37f)) * 0.035f * shakeAmount,
+                Mathf.Cos(phase * 0.83f) * 0.055f * shakeAmount);
+            var localWobble = Quaternion.Euler(
+                Mathf.Sin(phase * 0.91f) * 10f * shakeAmount,
+                Mathf.Cos(phase * 1.17f) * 12f * shakeAmount,
+                Mathf.Sin(phase * 1.31f) * 9f * shakeAmount);
+            worldDieBody.MovePosition(diceCupTransform.TransformPoint(localOffset));
+            worldDieBody.MoveRotation(diceCupTransform.rotation * localWobble * dieInCupBaseLocalRotation);
+        }
+
+        private void Update()
+        {
+            if (!isRolling || !isWaitingForCupShake || cupReleaseStarted || IsAiTurnActive())
+            {
+                return;
+            }
+
+            UpdateMouseCupShake();
+            if (cupReleaseStarted)
+            {
+                return;
+            }
+
+            var keyboard = Keyboard.current;
+            if (keyboard != null)
+            {
+                if (keyboard.escapeKey.wasPressedThisFrame)
+                {
+                    CancelCupShake();
+                    return;
+                }
+
+                if (keyboard.enterKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame)
+                {
+                    EndCupShake();
+                    return;
+                }
+            }
+
+            var gamepad = Gamepad.current;
+            if (gamepad == null)
+            {
+                return;
+            }
+
+            if (gamepad.buttonEast.wasPressedThisFrame)
+            {
+                CancelCupShake();
+            }
+            else if (gamepad.buttonSouth.wasPressedThisFrame)
+            {
+                EndCupShake();
+            }
+        }
+
+        private void UpdateMouseCupShake()
+        {
+            var mouse = Mouse.current;
+            if (mouse == null)
+            {
+                return;
+            }
+
+            var pointerPosition = mouse.position.ReadValue();
+            var leftButtonPressed = mouse.leftButton.isPressed;
+            var pointerInsideSurface = diceInputSurface != null
+                && diceInputSurface.activeInHierarchy
+                && RectTransformUtility.RectangleContainsScreenPoint(
+                    diceInputSurface.GetComponent<RectTransform>(),
+                    pointerPosition,
+                    null);
+            if (leftButtonPressed
+                && !isCupDragging
+                && pointerInsideSurface)
+            {
+                mouseCupDragActive = true;
+                BeginCupShake(pointerPosition);
+            }
+
+            if (leftButtonPressed && isCupDragging && mouseCupDragActive)
+            {
+                var pointerDelta = hasPolledCupPointerPosition
+                    ? pointerPosition - polledCupPointerPosition
+                    : mouse.delta.ReadValue();
+                if (pointerDelta.sqrMagnitude <= 0.0001f)
+                {
+                    pointerDelta = mouse.delta.ReadValue();
+                }
+
+                polledCupPointerPosition = pointerPosition;
+                hasPolledCupPointerPosition = true;
+                if (lastCupDragInputFrame != Time.frameCount
+                    && pointerDelta.sqrMagnitude > 0.0001f)
+                {
+                    DragCupShake(pointerPosition, pointerDelta);
+                }
+            }
+
+            if (mouseCupDragActive && !leftButtonPressed)
+            {
+                mouseCupDragActive = false;
+                hasPolledCupPointerPosition = false;
+                if (isCupDragging)
+                {
+                    EndCupShake();
+                }
+            }
         }
 
         private static Font LoadInterfaceFont(out bool ownsFont)
@@ -252,18 +644,35 @@ namespace Tikatooka
             var scaler = canvasObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1600, 900);
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
 
-            var root = CreateUiObject("Root", canvasObject.transform);
-            var rootRect = root.GetComponent<RectTransform>();
+            boardUiRoot = CreateUiObject("Root", canvasObject.transform);
+            var rootRect = boardUiRoot.GetComponent<RectTransform>();
             rootRect.anchorMin = Vector2.zero;
             rootRect.anchorMax = Vector2.one;
             rootRect.offsetMin = Vector2.zero;
             rootRect.offsetMax = Vector2.zero;
-            var rootImage = root.AddComponent<Image>();
-            rootImage.color = PageColor;
+            var rootImage = boardUiRoot.AddComponent<Image>();
+            if (mainBoardBackdropSprite != null)
+            {
+                rootImage.sprite = mainBoardBackdropSprite;
+                rootImage.type = Image.Type.Simple;
+                rootImage.preserveAspect = false;
+                rootImage.color = Color.white;
+            }
+            else if (boardPatternSprite != null)
+            {
+                rootImage.sprite = boardPatternSprite;
+                rootImage.type = Image.Type.Tiled;
+                rootImage.color = new Color(0.82f, 0.88f, 0.84f, 1f);
+            }
+            else
+            {
+                rootImage.color = PageColor;
+            }
+            rootImage.raycastTarget = false;
 
-            var rootLayout = root.AddComponent<VerticalLayoutGroup>();
+            var rootLayout = boardUiRoot.AddComponent<VerticalLayoutGroup>();
             rootLayout.padding = new RectOffset(12, 12, 12, 12);
             rootLayout.spacing = 12;
             rootLayout.childAlignment = TextAnchor.UpperCenter;
@@ -272,21 +681,32 @@ namespace Tikatooka
             rootLayout.childForceExpandHeight = false;
             rootLayout.childForceExpandWidth = true;
 
-            CreateHeader(root.transform);
-            CreateBoards(root.transform);
-            CreateControls(root.transform);
+            CreateHeader(boardUiRoot.transform);
+            CreateBoards(boardUiRoot.transform);
+            CreateControls(boardUiRoot.transform);
             CreateDiceOverlay(canvasObject.transform);
             CreateAttackAnimationLayer(canvasObject.transform);
             CreateResultBanner(canvasObject.transform);
             CreateModeSelectionOverlay(canvasObject.transform);
+            Canvas.ForceUpdateCanvases();
         }
 
         private void CreateHeader(Transform parent)
         {
             var header = CreateUiObject("Header", parent);
             headerImage = header.AddComponent<Image>();
-            headerImage.sprite = diceFaceSprite;
-            headerImage.color = new Color32(247, 249, 246, 255);
+            if (controlPlaqueSprite != null)
+            {
+                headerImage.sprite = controlPlaqueSprite;
+                headerImage.type = Image.Type.Sliced;
+                headerImage.color = Color.white;
+            }
+            else
+            {
+                headerImage.sprite = diceFaceSprite;
+                headerImage.color = new Color32(247, 249, 246, 255);
+            }
+            headerImage.raycastTarget = false;
             var headerShadow = header.AddComponent<Shadow>();
             headerShadow.effectColor = new Color(0f, 0f, 0f, 0.08f);
             headerShadow.effectDistance = new Vector2(2f, -2f);
@@ -297,10 +717,11 @@ namespace Tikatooka
             headerLayout.childForceExpandHeight = true;
             headerLayout.childForceExpandWidth = false;
             headerLayout.childAlignment = TextAnchor.MiddleCenter;
+            headerLayout.padding = new RectOffset(24, 24, 0, 0);
             AddLayout(header, -1, 72);
 
             statusText = CreateText("Status", header.transform, "플레이어 1 차례", 28, FontStyle.Bold, TextAnchor.MiddleLeft);
-            statusText.color = TextColor;
+            statusText.color = controlPlaqueSprite != null ? ArtDecoCream : TextColor;
             AddLayout(statusText.gameObject, -1, 72, flexibleWidth: 1);
 
             CreateMatchScoreDisplay(header.transform);
@@ -311,7 +732,11 @@ namespace Tikatooka
         {
             var display = CreateUiObject("Match Score Display", parent);
             matchScoreImage = display.AddComponent<Image>();
-            matchScoreImage.sprite = diceFaceSprite;
+            matchScoreImage.sprite = panelParchmentSprite != null ? panelParchmentSprite : diceFaceSprite;
+            if (panelParchmentSprite != null)
+            {
+                matchScoreImage.type = Image.Type.Tiled;
+            }
             matchScoreImage.color = ScorePanelColor;
             var scoreShadow = display.AddComponent<Shadow>();
             scoreShadow.effectColor = new Color(0f, 0f, 0f, 0.08f);
@@ -343,7 +768,11 @@ namespace Tikatooka
         {
             var display = CreateUiObject("Drawn Die Display", parent);
             drawnDieImage = display.AddComponent<Image>();
-            drawnDieImage.sprite = diceFaceSprite;
+            drawnDieImage.sprite = panelParchmentSprite != null ? panelParchmentSprite : diceFaceSprite;
+            if (panelParchmentSprite != null)
+            {
+                drawnDieImage.type = Image.Type.Tiled;
+            }
             drawnDieImage.color = PanelColor;
             var displayShadow = display.AddComponent<Shadow>();
             displayShadow.effectColor = new Color(0f, 0f, 0f, 0.08f);
@@ -368,8 +797,10 @@ namespace Tikatooka
 
             var faceObject = CreateUiObject("Drawn Die Face", display.transform);
             drawnDieFaceImage = faceObject.AddComponent<Image>();
-            drawnDieFaceImage.sprite = diceFaceSprite;
-            drawnDieFaceImage.color = PanelColor;
+            drawnDieFaceImage.sprite = diceFaceArtSprite != null ? diceFaceArtSprite : diceFaceSprite;
+            drawnDieFaceImage.type = Image.Type.Simple;
+            drawnDieFaceImage.preserveAspect = false;
+            drawnDieFaceImage.color = GetDiceFaceArtTint(PanelColor);
             drawnDieFaceImage.raycastTarget = false;
             var faceShadow = faceObject.AddComponent<Shadow>();
             faceShadow.effectColor = new Color(0f, 0f, 0f, 0.16f);
@@ -379,6 +810,10 @@ namespace Tikatooka
             faceOutline.effectDistance = new Vector2(1f, -1f);
             AddLayout(faceObject, 46, 42);
 
+            if (diceFaceArtSprite == null)
+            {
+                CreateDiceCeramicInlay(faceObject.transform, 0.16f, 0.32f);
+            }
             CreateDrawnDiePips(faceObject.transform);
 
             drawnDieText = CreateText("Drawn Die Value", faceObject.transform, "-", 30, FontStyle.Bold, TextAnchor.MiddleCenter);
@@ -460,7 +895,7 @@ namespace Tikatooka
 
             var backdrop = diceOverlay.AddComponent<Image>();
             backdrop.color = new Color(0f, 0f, 0f, 0.55f);
-            backdrop.raycastTarget = true;
+            backdrop.raycastTarget = false;
 
             var stageObject = CreateUiObject("Dice Cup Full Stage", diceOverlay.transform);
             var stageRect = stageObject.GetComponent<RectTransform>();
@@ -471,12 +906,58 @@ namespace Tikatooka
 
             var rawImage = stageObject.AddComponent<RawImage>();
             rawImage.color = Color.white;
-            rawImage.raycastTarget = true;
-            var dragSurface = stageObject.AddComponent<DiceCupDragSurface>();
-            dragSurface.Initialize(this);
+            rawImage.raycastTarget = false;
+            diceOutputImage = rawImage;
             CreateDiceCupStage(rawImage);
+            CreateDiceShakeHint(diceOverlay.transform);
+
+            // Keep pointer capture separate from the rendered stage. As the final
+            // sibling this transparent surface cannot be hidden behind the
+            // backdrop, RenderTexture image, or the visual hint panel.
+            diceInputSurface = CreateUiObject("Dice Cup Input Surface", diceOverlay.transform);
+            var inputRect = diceInputSurface.GetComponent<RectTransform>();
+            inputRect.anchorMin = Vector2.zero;
+            inputRect.anchorMax = Vector2.one;
+            inputRect.offsetMin = Vector2.zero;
+            inputRect.offsetMax = Vector2.zero;
+            var inputImage = diceInputSurface.AddComponent<Image>();
+            inputImage.color = new Color(1f, 1f, 1f, 0f);
+            inputImage.raycastTarget = true;
+            var dragSurface = diceInputSurface.AddComponent<DiceCupDragSurface>();
+            dragSurface.Initialize(this);
 
             SetDiceOverlayVisible(false);
+        }
+
+        private void CreateDiceShakeHint(Transform parent)
+        {
+            var hintPanel = CreateUiObject("Dice Shake Hint Panel", parent);
+            var hintImage = hintPanel.AddComponent<Image>();
+            hintImage.sprite = diceFaceSprite;
+            hintImage.color = new Color(0.035f, 0.055f, 0.06f, 0.86f);
+            hintImage.raycastTarget = false;
+
+            var hintRect = hintPanel.GetComponent<RectTransform>();
+            hintRect.anchorMin = new Vector2(0.5f, 0f);
+            hintRect.anchorMax = new Vector2(0.5f, 0f);
+            hintRect.pivot = new Vector2(0.5f, 0f);
+            hintRect.sizeDelta = new Vector2(1160f, 68f);
+            hintRect.anchoredPosition = new Vector2(0f, 34f);
+
+            var hintText = CreateText(
+                "Dice Shake Hint",
+                hintPanel.transform,
+                "마우스로 컵을 흔든 뒤 놓으세요  ·  Enter/Space: 굴리기  ·  Esc: 취소",
+                22,
+                FontStyle.Bold,
+                TextAnchor.MiddleCenter);
+            hintText.color = Color.white;
+            hintText.raycastTarget = false;
+            var hintTextRect = hintText.GetComponent<RectTransform>();
+            hintTextRect.anchorMin = Vector2.zero;
+            hintTextRect.anchorMax = Vector2.one;
+            hintTextRect.offsetMin = new Vector2(18f, 8f);
+            hintTextRect.offsetMax = new Vector2(-18f, -8f);
         }
 
         private void CreateResultBanner(Transform parent)
@@ -495,8 +976,17 @@ namespace Tikatooka
 
             var card = CreateUiObject("Result Card", resultBanner.transform);
             resultCardImage = card.AddComponent<Image>();
-            resultCardImage.sprite = diceFaceSprite;
-            resultCardImage.color = PanelColor;
+            if (controlPlaqueSprite != null)
+            {
+                resultCardImage.sprite = controlPlaqueSprite;
+                resultCardImage.type = Image.Type.Sliced;
+                resultCardImage.color = Color.white;
+            }
+            else
+            {
+                resultCardImage.sprite = diceFaceSprite;
+                resultCardImage.color = PanelColor;
+            }
             var cardShadow = card.AddComponent<Shadow>();
             cardShadow.effectColor = new Color(0f, 0f, 0f, 0.28f);
             cardShadow.effectDistance = new Vector2(5f, -5f);
@@ -521,14 +1011,18 @@ namespace Tikatooka
             cardLayout.childForceExpandWidth = true;
 
             resultTitleText = CreateText("Result Title", card.transform, "게임 종료", 38, FontStyle.Bold, TextAnchor.MiddleCenter);
+            if (controlPlaqueSprite != null)
+            {
+                resultTitleText.color = ArtDecoCream;
+            }
             AddLayout(resultTitleText.gameObject, -1, 54);
 
             resultDetailText = CreateText("Result Detail", card.transform, "구간 승수 0 : 0", 24, FontStyle.Bold, TextAnchor.MiddleCenter);
-            resultDetailText.color = MutedTextColor;
+            resultDetailText.color = controlPlaqueSprite != null ? ArtDecoMutedGold : MutedTextColor;
             AddLayout(resultDetailText.gameObject, -1, 38);
 
-            var resultResetButton = CreateButton("Result Reset Button", card.transform, "새 게임", 25);
-            resultResetButton.image.color = new Color32(65, 73, 82, 255);
+            resultResetButton = CreateButton("Result Reset Button", card.transform, "새 게임", 25);
+            ApplyGeneratedButtonSkin(resultResetButton, buttonSecondarySprite, new Color32(65, 73, 82, 255));
             resultResetButton.onClick.AddListener(StartNewGame);
             AddControlButtonDepth(resultResetButton.gameObject);
             var resultResetText = resultResetButton.GetComponentInChildren<Text>();
@@ -557,8 +1051,17 @@ namespace Tikatooka
 
             var card = CreateUiObject("Mode Selection Card", modeSelectionOverlay.transform);
             var cardImage = card.AddComponent<Image>();
-            cardImage.sprite = diceFaceSprite;
-            cardImage.color = PanelColor;
+            if (controlPlaqueSprite != null)
+            {
+                cardImage.sprite = controlPlaqueSprite;
+                cardImage.type = Image.Type.Sliced;
+                cardImage.color = Color.white;
+            }
+            else
+            {
+                cardImage.sprite = diceFaceSprite;
+                cardImage.color = PanelColor;
+            }
             var cardShadow = card.AddComponent<Shadow>();
             cardShadow.effectColor = new Color(0f, 0f, 0f, 0.3f);
             cardShadow.effectDistance = new Vector2(5f, -5f);
@@ -583,11 +1086,11 @@ namespace Tikatooka
             cardLayout.childForceExpandWidth = true;
 
             var title = CreateText("Mode Selection Title", card.transform, "게임 모드 선택", 38, FontStyle.Bold, TextAnchor.MiddleCenter);
-            title.color = TextColor;
+            title.color = controlPlaqueSprite != null ? ArtDecoCream : TextColor;
             AddLayout(title.gameObject, -1, 56);
 
             var subtitle = CreateText("Mode Selection Subtitle", card.transform, "PVP는 플레이어끼리, PVE는 플레이어 1 대 AI로 진행합니다.", 22, FontStyle.Bold, TextAnchor.MiddleCenter);
-            subtitle.color = MutedTextColor;
+            subtitle.color = controlPlaqueSprite != null ? ArtDecoMutedGold : MutedTextColor;
             AddLayout(subtitle.gameObject, -1, 42);
 
             var buttons = CreateUiObject("Mode Buttons", card.transform);
@@ -600,29 +1103,29 @@ namespace Tikatooka
             buttonsLayout.childForceExpandWidth = false;
             AddLayout(buttons, -1, 82);
 
-            var pvpButton = CreateButton("PVP Mode Button", buttons.transform, "PVP", 30);
-            pvpButton.image.color = PlayerAccentColors[0];
-            pvpButton.onClick.AddListener(() => SelectMatchMode(MatchMode.Pvp));
-            AddControlButtonDepth(pvpButton.gameObject);
-            var pvpText = pvpButton.GetComponentInChildren<Text>();
+            pvpModeButton = CreateButton("PVP Mode Button", buttons.transform, "PVP", 30);
+            ApplyGeneratedButtonSkin(pvpModeButton, buttonPvpSprite, PlayerAccentColors[0]);
+            pvpModeButton.onClick.AddListener(() => SelectMatchMode(MatchMode.Pvp));
+            AddControlButtonDepth(pvpModeButton.gameObject);
+            var pvpText = pvpModeButton.GetComponentInChildren<Text>();
             if (pvpText != null)
             {
                 pvpText.color = Color.white;
             }
 
-            AddLayout(pvpButton.gameObject, 210, 72);
+            AddLayout(pvpModeButton.gameObject, 210, 72);
 
-            var pveButton = CreateButton("PVE Mode Button", buttons.transform, "PVE", 30);
-            pveButton.image.color = PlayerAccentColors[1];
-            pveButton.onClick.AddListener(() => SelectMatchMode(MatchMode.Pve));
-            AddControlButtonDepth(pveButton.gameObject);
-            var pveText = pveButton.GetComponentInChildren<Text>();
+            pveModeButton = CreateButton("PVE Mode Button", buttons.transform, "PVE", 30);
+            ApplyGeneratedButtonSkin(pveModeButton, buttonPveSprite, PlayerAccentColors[1]);
+            pveModeButton.onClick.AddListener(() => SelectMatchMode(MatchMode.Pve));
+            AddControlButtonDepth(pveModeButton.gameObject);
+            var pveText = pveModeButton.GetComponentInChildren<Text>();
             if (pveText != null)
             {
                 pveText.color = Color.white;
             }
 
-            AddLayout(pveButton.gameObject, 210, 72);
+            AddLayout(pveModeButton.gameObject, 210, 72);
 
             modeSelectionOverlay.SetActive(false);
         }
@@ -640,9 +1143,14 @@ namespace Tikatooka
 
         private void CreateDiceCupStage(RawImage target)
         {
-            diceRenderTexture = new RenderTexture(1600, 900, 16, RenderTextureFormat.ARGB32)
+            diceRenderTexture = new RenderTexture(DiceRenderWidth, DiceRenderHeight, 16, RenderTextureFormat.ARGB32)
             {
-                name = "Dice Cup Render Texture"
+                name = "Dice Cup Render Texture",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+                useMipMap = false,
+                autoGenerateMips = false,
+                antiAliasing = 1
             };
             diceRenderTexture.Create();
             target.texture = diceRenderTexture;
@@ -651,22 +1159,74 @@ namespace Tikatooka
             diceStageRoot.SetParent(transform, false);
             diceStageRoot.position = Vector3.zero;
 
-            cupMaterial = CreateStageMaterial("Cup Outer Material", new Color(0.05f, 0.07f, 0.06f, 1f), false);
-            cupInnerMaterial = CreateStageMaterial("Cup Inner Material", new Color(0.58f, 0.04f, 0.03f, 1f), false);
-            dieMaterial = CreateStageMaterial("Die Material", new Color(0.96f, 0.95f, 0.9f, 1f), false);
+            cupMaterial = CreateStageMaterial("Oxblood Leather Cup Material", new Color(0.78f, 0.65f, 0.62f, 1f), false);
+            cupInnerMaterial = CreateStageMaterial("Cup Inner Material", new Color32(66, 12, 10, 255), false);
+            dieMaterial = CreateStageMaterial("Die Material", Color.white, false);
             pipMaterial = CreateStageMaterial("Pip Material", new Color(0.08f, 0.09f, 0.1f, 1f), false);
-            tableMaterial = CreateStageMaterial("Wood Table Material", new Color(0.62f, 0.34f, 0.14f, 1f), false);
-            woodGrainMaterial = CreateStageMaterial("Wood Grain Material", new Color(0.38f, 0.2f, 0.07f, 1f), false);
-            feltMaterial = CreateStageMaterial("Red Felt Material", new Color(0.52f, 0.12f, 0.1f, 1f), false);
-            trayRimMaterial = CreateStageMaterial("Tray Rim Material", new Color(0.28f, 0.32f, 0.31f, 1f), false);
-            trayHighlightMaterial = CreateStageMaterial("Tray Highlight Material", new Color(0.54f, 0.58f, 0.54f, 1f), false);
+            tableMaterial = CreateStageMaterial("Walnut Table Material", new Color(0.76f, 0.66f, 0.58f, 1f), false);
+            feltMaterial = CreateStageMaterial("Patterned Teal Felt Material", Color.white, false);
+            trayRimMaterial = CreateStageMaterial("Antique Brass Tray Rim Material", new Color(0.43f, 0.31f, 0.13f, 1f), false);
+            trayHighlightMaterial = CreateStageMaterial("Polished Brass Tray Highlight Material", new Color(0.82f, 0.65f, 0.28f, 1f), false);
+            ApplyStageTexture(cupMaterial, cupLeatherTexture, new Vector2(1.4f, 1f), 0.28f);
+            ApplyStageTexture(dieMaterial, worldDieSurfaceTexture != null ? worldDieSurfaceTexture : diceCeramicTexture, Vector2.one, 0.56f);
+            ApplyStageTexture(tableMaterial, walnutTableTexture, new Vector2(2.5f, 2f), 0.38f);
+            ApplyStageTexture(feltMaterial, boardPatternTexture, new Vector2(1.6f, 1.6f), 0.2f);
+            SetMaterialFinish(cupMaterial, 0f, 0.28f);
+            SetMaterialFinish(cupInnerMaterial, 0f, 0.22f);
+            SetMaterialFinish(dieMaterial, 0.02f, 0.56f);
+            SetMaterialFinish(pipMaterial, 0.04f, 0.3f);
+            SetMaterialFinish(tableMaterial, 0f, 0.38f);
+            SetMaterialFinish(feltMaterial, 0f, 0.2f);
+            SetMaterialFinish(trayRimMaterial, 0.78f, 0.46f);
+            SetMaterialFinish(trayHighlightMaterial, 0.86f, 0.58f);
 
             CreateStageCamera();
             CreateStageLights();
             CreateStageTable();
             CreateWorldDie();
             CreateWorldCup();
+            SetLayerRecursively(diceStageRoot.gameObject, DiceStageLayer);
+            ExcludeDiceStageFromOtherCameras();
             ResetDiceStage();
+        }
+
+        private static void SetLayerRecursively(GameObject root, int layer)
+        {
+            root.layer = layer;
+            foreach (Transform child in root.transform)
+            {
+                SetLayerRecursively(child.gameObject, layer);
+            }
+        }
+
+        private void ExcludeDiceStageFromOtherCameras()
+        {
+            var diceLayerMask = 1 << DiceStageLayer;
+            var sceneCameras = FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var cameraCount = 0;
+            for (var index = 0; index < sceneCameras.Length; index++)
+            {
+                var sceneCamera = sceneCameras[index];
+                if (sceneCamera != diceCamera && sceneCamera.gameObject.scene == gameObject.scene)
+                {
+                    cameraCount++;
+                }
+            }
+
+            maskedSceneCameras = new Camera[cameraCount];
+            originalSceneCameraMasks = new int[cameraCount];
+            var storedIndex = 0;
+            for (var index = 0; index < sceneCameras.Length; index++)
+            {
+                var sceneCamera = sceneCameras[index];
+                if (sceneCamera != diceCamera && sceneCamera.gameObject.scene == gameObject.scene)
+                {
+                    maskedSceneCameras[storedIndex] = sceneCamera;
+                    originalSceneCameraMasks[storedIndex] = sceneCamera.cullingMask;
+                    storedIndex++;
+                    sceneCamera.cullingMask &= ~diceLayerMask;
+                }
+            }
         }
 
         private void CreateBoards(Transform parent)
@@ -692,7 +1252,16 @@ namespace Tikatooka
 
             var panel = CreateUiObject($"Player {playerIndex + 1} Panel", parent);
             board.PanelImage = panel.AddComponent<Image>();
-            board.PanelImage.color = PanelColor;
+            if (panelParchmentSprite != null)
+            {
+                board.PanelImage.sprite = panelParchmentSprite;
+                board.PanelImage.type = Image.Type.Tiled;
+                board.PanelImage.color = Color.white;
+            }
+            else
+            {
+                board.PanelImage.color = PanelColor;
+            }
             var panelShadow = panel.AddComponent<Shadow>();
             panelShadow.effectColor = new Color(0f, 0f, 0f, 0.08f);
             panelShadow.effectDistance = new Vector2(3f, -3f);
@@ -708,6 +1277,7 @@ namespace Tikatooka
             panelLayout.childForceExpandHeight = false;
             panelLayout.childForceExpandWidth = true;
             AddLayout(panel, 548, 590);
+            CreateBoardPatternOverlay(panel.transform, 0.12f);
 
             var titleRow = CreateUiObject("Title Row", panel.transform);
             var titleLayout = titleRow.AddComponent<HorizontalLayoutGroup>();
@@ -756,7 +1326,16 @@ namespace Tikatooka
 
             var gridObject = CreateUiObject("Grid", gridWrap.transform);
             var gridImage = gridObject.AddComponent<Image>();
-            gridImage.color = new Color32(216, 219, 216, 255);
+            if (boardPatternSprite != null)
+            {
+                gridImage.sprite = boardPatternSprite;
+                gridImage.type = Image.Type.Tiled;
+                gridImage.color = new Color(0.88f, 0.9f, 0.86f, 1f);
+            }
+            else
+            {
+                gridImage.color = new Color32(216, 219, 216, 255);
+            }
             var gridShadow = gridObject.AddComponent<Shadow>();
             gridShadow.effectColor = new Color(0f, 0f, 0f, 0.08f);
             gridShadow.effectDistance = new Vector2(2f, -2f);
@@ -778,7 +1357,16 @@ namespace Tikatooka
                     var capturedRow = row;
                     var capturedColumn = column;
                     var cellButton = CreateButton($"Cell {row},{column}", gridObject.transform, string.Empty, 36);
-                    cellButton.image.color = EmptyCellColor;
+                    if (cellPlateSprite != null)
+                    {
+                        cellButton.image.sprite = cellPlateSprite;
+                        cellButton.image.type = Image.Type.Simple;
+                        cellButton.image.preserveAspect = false;
+                        var cellColors = cellButton.colors;
+                        cellColors.disabledColor = Color.white;
+                        cellButton.colors = cellColors;
+                    }
+                    cellButton.image.color = GetCellPlateTint(EmptyCellColor);
                     var cellOutline = cellButton.gameObject.AddComponent<Outline>();
                     cellOutline.effectColor = Color.clear;
                     cellOutline.effectDistance = Vector2.zero;
@@ -874,7 +1462,7 @@ namespace Tikatooka
             badgeRect.anchoredPosition = Vector2.zero;
 
             var label = CreateText("Label", badge.transform, (section + 1).ToString(), 15, FontStyle.Bold, TextAnchor.MiddleCenter);
-            label.color = PlayerAccentColors[playerIndex];
+            label.color = PlayerLabelColors[playerIndex];
             board.SectionLabelTexts[section] = label;
             var labelRect = label.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;
@@ -887,7 +1475,9 @@ namespace Tikatooka
         {
             var faceObject = CreateUiObject("Die Face", cell);
             var faceImage = faceObject.AddComponent<Image>();
-            faceImage.sprite = diceFaceSprite;
+            faceImage.sprite = diceFaceArtSprite != null ? diceFaceArtSprite : diceFaceSprite;
+            faceImage.type = Image.Type.Simple;
+            faceImage.preserveAspect = false;
             faceImage.color = Color.white;
             faceImage.raycastTarget = false;
             var faceShadow = faceObject.AddComponent<Shadow>();
@@ -901,6 +1491,10 @@ namespace Tikatooka
             faceRect.anchorMax = new Vector2(0.5f, 0.5f);
             faceRect.sizeDelta = new Vector2(76f, 76f);
             faceRect.anchoredPosition = Vector2.zero;
+            if (diceFaceArtSprite == null)
+            {
+                CreateDiceCeramicInlay(faceObject.transform, 0.1f, 0.34f);
+            }
             faceObject.SetActive(false);
             board.CellFaceImages[row, column] = faceImage;
 
@@ -965,7 +1559,17 @@ namespace Tikatooka
         {
             var panel = CreateUiObject("Section Score Comparison", parent);
             var panelImage = panel.AddComponent<Image>();
-            panelImage.color = ScorePanelColor;
+            if (scoreTowerSprite != null)
+            {
+                panelImage.sprite = scoreTowerSprite;
+                panelImage.type = Image.Type.Simple;
+                panelImage.color = Color.white;
+            }
+            else
+            {
+                panelImage.color = ScorePanelColor;
+            }
+            panelImage.raycastTarget = false;
             var panelShadow = panel.AddComponent<Shadow>();
             panelShadow.effectColor = new Color(0f, 0f, 0f, 0.1f);
             panelShadow.effectDistance = new Vector2(3f, -3f);
@@ -981,7 +1585,7 @@ namespace Tikatooka
             AddLayout(panel, 180, 590);
 
             var title = CreateText("Score Comparison Title", panel.transform, "구간 점수", 20, FontStyle.Bold, TextAnchor.MiddleCenter);
-            title.color = TextColor;
+            title.color = scoreTowerSprite != null ? ArtDecoCream : TextColor;
             AddLayout(title.gameObject, -1, 42);
 
             for (var section = 0; section < BoardSize; section++)
@@ -1019,8 +1623,10 @@ namespace Tikatooka
         {
             var badge = CreateUiObject($"Player {player + 1} Section {section + 1} Score", parent);
             var badgeImage = badge.AddComponent<Image>();
-            badgeImage.sprite = scoreBadgeSprite;
-            badgeImage.color = ScoreNeutralColor;
+            badgeImage.sprite = scoreMedallionSprite != null ? scoreMedallionSprite : scoreBadgeSprite;
+            badgeImage.type = Image.Type.Simple;
+            badgeImage.preserveAspect = true;
+            badgeImage.color = GetScoreMedallionTint(ScoreNeutralColor);
             var badgeShadow = badge.AddComponent<Shadow>();
             badgeShadow.effectColor = new Color(0f, 0f, 0f, 0.18f);
             badgeShadow.effectDistance = new Vector2(1.5f, -1.5f);
@@ -1031,7 +1637,7 @@ namespace Tikatooka
             AddLayout(badge, 52, 52);
 
             var scoreText = CreateText("Score", badge.transform, "0", 25, FontStyle.Bold, TextAnchor.MiddleCenter);
-            scoreText.color = ScoreTextColor;
+            scoreText.color = scoreMedallionSprite != null ? new Color32(25, 49, 39, 255) : ScoreTextColor;
             sectionScoreTexts[player, section] = scoreText;
 
             var scoreRect = scoreText.GetComponent<RectTransform>();
@@ -1050,10 +1656,15 @@ namespace Tikatooka
 
             diceCamera = cameraObject.AddComponent<Camera>();
             diceCamera.clearFlags = CameraClearFlags.SolidColor;
-            diceCamera.backgroundColor = new Color32(177, 110, 48, 255);
+            diceCamera.backgroundColor = new Color32(5, 27, 20, 255);
             diceCamera.fieldOfView = 38f;
             diceCamera.nearClipPlane = 0.1f;
             diceCamera.farClipPlane = 30f;
+            diceCamera.cullingMask = 1 << DiceStageLayer;
+            diceCamera.allowHDR = false;
+            diceCamera.allowMSAA = false;
+            diceCamera.useOcclusionCulling = false;
+            diceCamera.depthTextureMode = DepthTextureMode.None;
             diceCamera.targetTexture = diceRenderTexture;
         }
 
@@ -1064,7 +1675,9 @@ namespace Tikatooka
             keyLight.transform.localPosition = new Vector3(-1.8f, 3.2f, -2.8f);
             var key = keyLight.AddComponent<Light>();
             key.type = LightType.Directional;
-            key.intensity = 1.15f;
+            key.intensity = 1f;
+            key.shadows = LightShadows.None;
+            key.cullingMask = 1 << DiceStageLayer;
             keyLight.transform.rotation = Quaternion.Euler(48f, -24f, 0f);
 
             var fillLight = new GameObject("Dice Cup Fill Light");
@@ -1072,20 +1685,17 @@ namespace Tikatooka
             fillLight.transform.localPosition = new Vector3(2.2f, 1.8f, -2.2f);
             var fill = fillLight.AddComponent<Light>();
             fill.type = LightType.Point;
-            fill.intensity = 1.2f;
+            fill.intensity = 0.8f;
             fill.range = 5f;
+            fill.renderMode = LightRenderMode.ForceVertex;
+            fill.shadows = LightShadows.None;
+            fill.cullingMask = 1 << DiceStageLayer;
         }
 
         private void CreateStageTable()
         {
-            CreateStageCube("Wood Table", new Vector3(0f, -0.14f, 0.02f), new Vector3(4.8f, 0.08f, 3.15f), tableMaterial, true);
-            for (var index = 0; index < 8; index++)
-            {
-                var z = -1.34f + index * 0.38f;
-                CreateStageCube($"Wood Grain {index + 1}", new Vector3(0f, -0.095f, z), new Vector3(4.65f, 0.012f, 0.018f), woodGrainMaterial);
-            }
-
-            CreateStageCube("Red Felt", new Vector3(-0.36f, -0.08f, 0.02f), new Vector3(2.75f, 0.06f, 1.85f), feltMaterial, true);
+            CreateStageCube("Walnut Table", new Vector3(0f, -0.14f, 0.02f), new Vector3(7.5f, 0.08f, 4.6f), tableMaterial, true);
+            CreateStageCube("Emerald Felt", new Vector3(-0.36f, -0.08f, 0.02f), new Vector3(2.75f, 0.06f, 1.85f), feltMaterial, true);
             CreateStageCube("Tray Top Rail", new Vector3(-0.36f, 0.02f, 1.05f), new Vector3(3.05f, 0.22f, 0.16f), trayRimMaterial, true);
             CreateStageCube("Tray Bottom Rail", new Vector3(-0.36f, 0.02f, -1.01f), new Vector3(3.05f, 0.22f, 0.16f), trayRimMaterial, true);
             CreateStageCube("Tray Left Rail", new Vector3(-1.94f, 0.02f, 0.02f), new Vector3(0.16f, 0.22f, 2.18f), trayRimMaterial, true);
@@ -1094,10 +1704,6 @@ namespace Tikatooka
             CreateStageCube("Tray Bottom Highlight", new Vector3(-0.36f, 0.145f, -1.01f), new Vector3(2.78f, 0.018f, 0.026f), trayHighlightMaterial);
             CreateStageCube("Tray Left Highlight", new Vector3(-1.94f, 0.145f, 0.02f), new Vector3(0.026f, 0.018f, 1.9f), trayHighlightMaterial);
             CreateStageCube("Tray Right Highlight", new Vector3(1.22f, 0.145f, 0.02f), new Vector3(0.026f, 0.018f, 1.9f), trayHighlightMaterial);
-            CreateInvisibleStageCollider("Dice Safety Top Wall", new Vector3(-0.36f, 0.36f, 0.84f), new Vector3(2.95f, 0.9f, 0.08f));
-            CreateInvisibleStageCollider("Dice Safety Bottom Wall", new Vector3(-0.36f, 0.36f, -0.8f), new Vector3(2.95f, 0.9f, 0.08f));
-            CreateInvisibleStageCollider("Dice Safety Left Wall", new Vector3(-1.66f, 0.36f, 0.02f), new Vector3(0.08f, 0.9f, 1.72f));
-            CreateInvisibleStageCollider("Dice Safety Right Wall", new Vector3(0.98f, 0.36f, 0.02f), new Vector3(0.08f, 0.9f, 1.72f));
         }
 
         private void CreateStageCube(string name, Vector3 position, Vector3 scale, Material material, bool keepCollider = false)
@@ -1107,24 +1713,10 @@ namespace Tikatooka
             cube.transform.SetParent(diceStageRoot, false);
             cube.transform.localPosition = position;
             cube.transform.localScale = scale;
-            cube.GetComponent<Renderer>().material = material;
+            cube.GetComponent<Renderer>().sharedMaterial = material;
             if (!keepCollider)
             {
                 Destroy(cube.GetComponent<Collider>());
-            }
-        }
-
-        private void CreateInvisibleStageCollider(string name, Vector3 position, Vector3 scale)
-        {
-            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.name = name;
-            cube.transform.SetParent(diceStageRoot, false);
-            cube.transform.localPosition = position;
-            cube.transform.localScale = scale;
-            var renderer = cube.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                renderer.enabled = false;
             }
         }
 
@@ -1136,15 +1728,19 @@ namespace Tikatooka
             diceCupBody = cup.AddComponent<Rigidbody>();
             diceCupBody.useGravity = false;
             diceCupBody.isKinematic = true;
-            diceCupBody.interpolation = RigidbodyInterpolation.Interpolate;
-            diceCupBody.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            diceCupBody.interpolation = RigidbodyInterpolation.None;
+            diceCupBody.collisionDetectionMode = CollisionDetectionMode.Discrete;
 
             var outerWall = new GameObject("Cup Outer Wall");
             outerWall.transform.SetParent(cup.transform, false);
             var outerFilter = outerWall.AddComponent<MeshFilter>();
             cupOuterMesh = CreateOpenCupMesh(0.62f, 0.82f, 48, false);
             outerFilter.sharedMesh = cupOuterMesh;
-            outerWall.AddComponent<MeshRenderer>().material = cupMaterial;
+            outerWall.AddComponent<MeshRenderer>().sharedMaterial = cupMaterial;
+            var outerCollider = outerWall.AddComponent<MeshCollider>();
+            outerCollider.sharedMesh = cupOuterMesh;
+            outerCollider.convex = false;
+            outerCollider.material = worldDiePhysicsMaterial;
 
             var innerWall = new GameObject("Cup Red Interior");
             innerWall.transform.SetParent(cup.transform, false);
@@ -1152,7 +1748,7 @@ namespace Tikatooka
             var innerFilter = innerWall.AddComponent<MeshFilter>();
             cupInnerMesh = CreateOpenCupMesh(0.5f, 0.72f, 48, true);
             innerFilter.sharedMesh = cupInnerMesh;
-            innerWall.AddComponent<MeshRenderer>().material = cupInnerMaterial;
+            innerWall.AddComponent<MeshRenderer>().sharedMaterial = cupInnerMaterial;
             var innerCollider = innerWall.AddComponent<MeshCollider>();
             innerCollider.sharedMesh = cupInnerMesh;
             innerCollider.convex = false;
@@ -1161,12 +1757,13 @@ namespace Tikatooka
             var floor = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             floor.name = "Cup Red Floor";
             floor.transform.SetParent(cup.transform, false);
-            floor.transform.localPosition = new Vector3(0f, -0.42f, 0f);
+            floor.transform.localPosition = new Vector3(0f, -0.39f, 0f);
             floor.transform.localScale = new Vector3(1f, 0.025f, 1f);
-            floor.GetComponent<Renderer>().material = cupInnerMaterial;
+            floor.GetComponent<Renderer>().sharedMaterial = cupInnerMaterial;
             Destroy(floor.GetComponent<Collider>());
-            var floorCollider = floor.AddComponent<BoxCollider>();
-            floorCollider.size = new Vector3(0.94f, 2f, 0.94f);
+            var floorCollider = floor.AddComponent<MeshCollider>();
+            floorCollider.sharedMesh = floor.GetComponent<MeshFilter>().sharedMesh;
+            floorCollider.convex = true;
             floorCollider.material = worldDiePhysicsMaterial;
 
             var rim = new GameObject("Cup Thick Rim");
@@ -1175,7 +1772,11 @@ namespace Tikatooka
             var rimFilter = rim.AddComponent<MeshFilter>();
             cupRimMesh = CreateRingMesh(0.49f, 0.69f, 48);
             rimFilter.sharedMesh = cupRimMesh;
-            rim.AddComponent<MeshRenderer>().material = cupMaterial;
+            rim.AddComponent<MeshRenderer>().sharedMaterial = cupMaterial;
+            var rimCollider = rim.AddComponent<MeshCollider>();
+            rimCollider.sharedMesh = cupRimMesh;
+            rimCollider.convex = false;
+            rimCollider.material = worldDiePhysicsMaterial;
         }
 
         private void CreateWorldDie()
@@ -1186,7 +1787,7 @@ namespace Tikatooka
             worldDieMesh = CreateRoundedCubeMesh(0.5f, 0.075f, 4);
             var dieFilter = die.AddComponent<MeshFilter>();
             dieFilter.sharedMesh = worldDieMesh;
-            die.AddComponent<MeshRenderer>().material = dieMaterial;
+            die.AddComponent<MeshRenderer>().sharedMaterial = dieMaterial;
             var dieCollider = die.AddComponent<MeshCollider>();
             dieCollider.sharedMesh = worldDieMesh;
             dieCollider.convex = true;
@@ -1195,9 +1796,9 @@ namespace Tikatooka
             {
                 worldDiePhysicsMaterial = new PhysicsMaterial("World Die Physics")
                 {
-                    dynamicFriction = 0.16f,
-                    staticFriction = 0.2f,
-                    bounciness = 0.28f,
+                    dynamicFriction = 0.2f,
+                    staticFriction = 0.28f,
+                    bounciness = 0.2f,
                     frictionCombine = PhysicsMaterialCombine.Minimum,
                     bounceCombine = PhysicsMaterialCombine.Maximum
                 };
@@ -1208,13 +1809,13 @@ namespace Tikatooka
             worldDieBody.mass = 0.18f;
             worldDieBody.useGravity = false;
             worldDieBody.isKinematic = true;
-            worldDieBody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            worldDieBody.collisionDetectionMode = CollisionDetectionMode.Discrete;
             worldDieBody.interpolation = RigidbodyInterpolation.Interpolate;
-            worldDieBody.linearDamping = 0.45f;
-            worldDieBody.angularDamping = 0.28f;
-            worldDieBody.maxAngularVelocity = 24f;
-            worldDieBody.solverIterations = 8;
-            worldDieBody.solverVelocityIterations = 4;
+            worldDieBody.linearDamping = DieLinearDamping;
+            worldDieBody.angularDamping = DieAngularDamping;
+            worldDieBody.maxAngularVelocity = 22f;
+            worldDieBody.solverIterations = 6;
+            worldDieBody.solverVelocityIterations = 2;
             worldDieTransform = die.transform;
             die.AddComponent<WorldDieCollisionReporter>().Initialize(this);
 
@@ -1253,7 +1854,7 @@ namespace Tikatooka
                 pip.transform.SetParent(worldDieTransform, false);
                 pip.transform.localPosition = normal * faceOffset + axisU * positions[index].x + axisV * positions[index].y;
                 pip.transform.localScale = Vector3.one * 0.082f;
-                pip.GetComponent<Renderer>().material = pipMaterial;
+                pip.GetComponent<Renderer>().sharedMaterial = pipMaterial;
                 Destroy(pip.GetComponent<Collider>());
             }
         }
@@ -1261,6 +1862,18 @@ namespace Tikatooka
         private void CreateControls(Transform parent)
         {
             var controls = CreateUiObject("Controls", parent);
+            var controlsImage = controls.AddComponent<Image>();
+            if (controlPlaqueSprite != null)
+            {
+                controlsImage.sprite = controlPlaqueSprite;
+                controlsImage.type = Image.Type.Sliced;
+                controlsImage.color = Color.white;
+            }
+            else
+            {
+                controlsImage.color = Color.clear;
+            }
+            controlsImage.raycastTarget = false;
             var controlsLayout = controls.AddComponent<HorizontalLayoutGroup>();
             controlsLayout.spacing = 18;
             controlsLayout.childAlignment = TextAnchor.MiddleCenter;
@@ -1268,17 +1881,18 @@ namespace Tikatooka
             controlsLayout.childControlWidth = true;
             controlsLayout.childForceExpandHeight = true;
             controlsLayout.childForceExpandWidth = false;
-            AddLayout(controls, -1, 62);
+            controlsLayout.padding = new RectOffset(18, 18, 9, 9);
+            AddLayout(controls, -1, 74);
 
             rollButton = CreateButton("Roll Button", controls.transform, "컵 굴리기", 26);
-            rollButton.image.color = ButtonColor;
+            ApplyGeneratedButtonSkin(rollButton, buttonPrimarySprite, ButtonColor);
             rollButtonText = rollButton.GetComponentInChildren<Text>();
             rollButton.onClick.AddListener(RollDie);
             AddControlButtonDepth(rollButton.gameObject);
             AddLayout(rollButton.gameObject, 190, 56);
 
             resetButton = CreateButton("Reset Button", controls.transform, "새 게임", 26);
-            resetButton.image.color = new Color32(65, 73, 82, 255);
+            ApplyGeneratedButtonSkin(resetButton, buttonSecondarySprite, new Color32(65, 73, 82, 255));
             resetButton.onClick.AddListener(StartNewGame);
             AddControlButtonDepth(resetButton.gameObject);
             var resetButtonText = resetButton.GetComponentInChildren<Text>();
@@ -1290,7 +1904,7 @@ namespace Tikatooka
             AddLayout(resetButton.gameObject, 190, 56);
 
             modeButton = CreateButton("Mode Select Button", controls.transform, "모드 선택", 24);
-            modeButton.image.color = ScoreNeutralColor;
+            ApplyGeneratedButtonSkin(modeButton, buttonSecondarySprite, ScoreNeutralColor);
             modeButton.onClick.AddListener(ShowModeSelection);
             AddControlButtonDepth(modeButton.gameObject);
             var modeButtonText = modeButton.GetComponentInChildren<Text>();
@@ -1304,7 +1918,7 @@ namespace Tikatooka
 
         private void StartNewGame()
         {
-            StopAllCoroutines();
+            StopGameplayCoroutines();
             gameStarted = true;
             if (modeSelectionOverlay != null)
             {
@@ -1337,18 +1951,31 @@ namespace Tikatooka
 
             ResetBoardFaceScales();
             RefreshView();
+            FocusFirstAvailableAction();
         }
 
         private void ShowModeSelection()
         {
-            StopAllCoroutines();
+            StopGameplayCoroutines();
             gameStarted = false;
+            currentDie = 0;
+            shakeEnergy = 0f;
+            ResetShakeTracking();
+            pendingDieCanAttack = false;
+            pendingDieCanPlaceOnOpponent = false;
+            nextRollCanAttack = true;
+            nextRollCanPlaceOnOpponent = false;
             isRolling = false;
+            isWaitingForCupShake = false;
+            isCupDragging = false;
+            cupReleaseStarted = false;
             isAttackAnimating = false;
             isAiThinking = false;
             hasPendingDie = false;
+            placementComplete = false;
             SetDiceOverlayVisible(false);
             ClearAttackAnimationLayer();
+            ResetBoardFaceScales();
             if (modeSelectionOverlay != null)
             {
                 modeSelectionOverlay.SetActive(true);
@@ -1356,6 +1983,24 @@ namespace Tikatooka
             }
 
             RefreshView();
+            if (bootCoverInputBlocked)
+            {
+                EventSystem.current?.SetSelectedGameObject(null);
+                return;
+            }
+
+            FocusModeSelection();
+        }
+
+        private void FocusModeSelection()
+        {
+            if (EventSystem.current != null
+                && modeSelectionOverlay != null
+                && modeSelectionOverlay.activeInHierarchy
+                && pveModeButton != null)
+            {
+                EventSystem.current.SetSelectedGameObject(pveModeButton.gameObject);
+            }
         }
 
         private void SelectMatchMode(MatchMode mode)
@@ -1385,7 +2030,6 @@ namespace Tikatooka
             nextRollCanPlaceOnOpponent = false;
             SetDiceOverlayVisible(true);
             ResetDiceStage();
-            RefreshView();
         }
 
         private void BeginCupShake(Vector2 screenPosition)
@@ -1395,11 +2039,20 @@ namespace Tikatooka
                 return;
             }
 
+            if (isCupDragging)
+            {
+                return;
+            }
+
             isCupDragging = true;
+            mouseCupDragActive |= Mouse.current != null && Mouse.current.leftButton.isPressed;
             cupDragStartScreenPosition = screenPosition;
-            cupDragStartLocalPosition = diceCupTransform != null
-                ? diceCupTransform.localPosition
-                : CupHomePosition;
+            polledCupPointerPosition = screenPosition;
+            hasPolledCupPointerPosition = true;
+            cupDragStartLocalPosition = diceCupTransform != null ? cupTargetLocalPosition : CupHomePosition;
+            cupPointerGrabOffset = TryGetCupPointerStagePosition(screenPosition, out var pointerPosition)
+                ? cupDragStartLocalPosition - pointerPosition
+                : Vector3.zero;
         }
 
         private void DragCupShake(Vector2 screenPosition, Vector2 delta)
@@ -1414,6 +2067,14 @@ namespace Tikatooka
                 BeginCupShake(screenPosition);
             }
 
+            if (lastCupDragInputFrame == Time.frameCount)
+            {
+                return;
+            }
+
+            lastCupDragInputFrame = Time.frameCount;
+            lastProcessedCupPointerPosition = screenPosition;
+
             RecordShakeDelta(delta);
             shakeEnergy = Mathf.Min(2.35f, shakeEnergy + Mathf.Max(0.025f, delta.magnitude * 0.009f));
             ApplyCupShakePose(screenPosition, delta);
@@ -1427,10 +2088,90 @@ namespace Tikatooka
             }
 
             isCupDragging = false;
+            hasPolledCupPointerPosition = false;
+            mouseCupDragActive = false;
             isWaitingForCupShake = false;
             cupReleaseStarted = true;
             shakeEnergy = Mathf.Max(shakeEnergy, 0.18f);
-            StartCoroutine(RollDieRoutine(BuildShakeMotionSeed()));
+            StartCoroutine(FinishPlayerCupShakeAndRoll(BuildShakeMotionSeed()));
+        }
+
+        private void CancelCupShake()
+        {
+            if (!isRolling || !isWaitingForCupShake || cupReleaseStarted || IsAiTurnActive())
+            {
+                return;
+            }
+
+            nextRollCanAttack = pendingDieCanAttack;
+            nextRollCanPlaceOnOpponent = pendingDieCanPlaceOnOpponent;
+            currentDie = 0;
+            hasPendingDie = false;
+            pendingDieCanAttack = false;
+            pendingDieCanPlaceOnOpponent = false;
+            isRolling = false;
+            isWaitingForCupShake = false;
+            isCupDragging = false;
+            cupReleaseStarted = false;
+            shakeEnergy = 0f;
+            ResetShakeTracking();
+            SetDiceOverlayVisible(false);
+            RefreshView();
+            FocusFirstAvailableAction();
+        }
+
+        private IEnumerator FinishPlayerCupShakeAndRoll(int motionSeed)
+        {
+            const float finishShakeDuration = 0.14f;
+            const float finishShakeFrequency = 5.5f;
+            const float uprightDuration = 0.03f;
+            var startPosition = cupTargetLocalPosition;
+            var startRotation = cupTargetLocalRotation;
+            var shake01 = Mathf.InverseLerp(0.18f, 2.35f, shakeEnergy + shakeDistance * 0.002f);
+            var amplitudeX = Mathf.Lerp(0.16f, 0.19f, shake01);
+            var amplitudeZ = Mathf.Lerp(0.09f, 0.12f, shake01);
+            var basePosition = new Vector3(
+                Mathf.Clamp(startPosition.x, CupDragMinX + amplitudeX, CupDragMaxX - amplitudeX),
+                Mathf.Max(startPosition.y, CupHomePosition.y + 0.06f),
+                Mathf.Clamp(startPosition.z, CupDragMinZ + amplitudeZ, CupDragMaxZ - amplitudeZ));
+            var elapsed = 0f;
+
+            while (elapsed < uprightDuration)
+            {
+                elapsed += Time.deltaTime;
+                var progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / uprightDuration));
+                SetCupPose(
+                    Vector3.Lerp(startPosition, basePosition, progress),
+                    Quaternion.Slerp(startRotation, Quaternion.identity, progress),
+                    false);
+                yield return null;
+            }
+
+            elapsed = 0f;
+
+            while (elapsed < finishShakeDuration)
+            {
+                elapsed += Time.deltaTime;
+                var progress = Mathf.Clamp01(elapsed / finishShakeDuration);
+                var envelope = Mathf.Sin(progress * Mathf.PI);
+                var phase = elapsed * Mathf.PI * 2f * finishShakeFrequency;
+                var horizontalWave = Mathf.Sin(phase);
+                var depthWave = Mathf.Cos(phase * 0.82f);
+                var shakePosition = basePosition + new Vector3(
+                    horizontalWave * amplitudeX * envelope,
+                    Mathf.Abs(Mathf.Sin(phase * 1.4f)) * 0.025f * envelope,
+                    depthWave * amplitudeZ * envelope);
+                var shakeRotation = Quaternion.Euler(
+                    depthWave * 6f * envelope,
+                    horizontalWave * 5f * envelope,
+                    -horizontalWave * 9.5f * envelope);
+                SetCupPose(shakePosition, shakeRotation, false);
+                yield return null;
+            }
+
+            SetCupPose(basePosition, Quaternion.identity, false);
+            yield return WaitForPhysicsStep;
+            yield return RollDieRoutine(motionSeed);
         }
 
         private int BuildShakeMotionSeed()
@@ -1449,6 +2190,10 @@ namespace Tikatooka
             peakShakeDelta = 0f;
             shakeDirectionChanges = 0;
             lastShakeDirection = Vector2.zero;
+            lastCupDragInputFrame = -1;
+            lastProcessedCupPointerPosition = Vector2.zero;
+            hasPolledCupPointerPosition = false;
+            mouseCupDragActive = false;
         }
 
         private void RecordShakeDelta(Vector2 delta)
@@ -1485,19 +2230,60 @@ namespace Tikatooka
             var screenWidth = Mathf.Max(1f, Screen.width);
             var screenHeight = Mathf.Max(1f, Screen.height);
             var dragOffset = screenPosition - cupDragStartScreenPosition;
-            var cupPosition = cupDragStartLocalPosition + new Vector3(
-                dragOffset.x / screenWidth * 1.85f,
-                Mathf.Clamp(delta.magnitude * 0.0015f, 0f, 0.065f),
-                dragOffset.y / screenHeight * 1.35f);
-            cupPosition.x = Mathf.Clamp(cupPosition.x, -0.82f, 1.02f);
-            cupPosition.y = Mathf.Clamp(cupPosition.y, CupHomePosition.y, CupHomePosition.y + 0.08f);
-            cupPosition.z = Mathf.Clamp(cupPosition.z, -0.58f, 0.68f);
+            var pointerVelocity = delta / Mathf.Max(Time.unscaledDeltaTime, 1f / 240f);
+            var lift = Mathf.Lerp(0.018f, 0.075f, Mathf.InverseLerp(80f, 900f, pointerVelocity.magnitude));
+            var cupPosition = TryGetCupPointerStagePosition(screenPosition, out var pointerPosition)
+                ? pointerPosition + cupPointerGrabOffset
+                : cupDragStartLocalPosition + new Vector3(
+                    dragOffset.x / screenWidth * 3.1f,
+                    0f,
+                    dragOffset.y / screenHeight * 2.25f);
+            cupPosition.y = CupHomePosition.y + lift;
+            cupPosition.x = Mathf.Clamp(cupPosition.x, CupDragMinX, CupDragMaxX);
+            cupPosition.z = Mathf.Clamp(cupPosition.z, CupDragMinZ, CupDragMaxZ);
 
-            var tiltX = Mathf.Clamp(delta.y * 0.07f, -10f, 10f);
-            var tiltY = Mathf.Clamp(delta.x * 0.04f, -11f, 11f);
-            var tiltZ = Mathf.Clamp(-delta.x * 0.085f, -14f, 14f);
+            var tiltX = Mathf.Clamp(pointerVelocity.y * 0.007f, -10f, 10f);
+            var tiltY = Mathf.Clamp(pointerVelocity.x * 0.0035f, -7f, 7f);
+            var tiltZ = Mathf.Clamp(-pointerVelocity.x * 0.0085f, -14f, 14f);
             var cupRotation = Quaternion.Euler(tiltX, tiltY, tiltZ);
-            SetCupPose(cupPosition, cupRotation, false);
+            SetCupPose(cupPosition, cupRotation, true);
+        }
+
+        private bool TryGetCupPointerStagePosition(Vector2 screenPosition, out Vector3 localPosition)
+        {
+            localPosition = Vector3.zero;
+            if (diceCamera == null || diceOutputImage == null || diceStageRoot == null)
+            {
+                return false;
+            }
+
+            var outputRect = diceOutputImage.rectTransform;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(outputRect, screenPosition, null, out var localPointer))
+            {
+                return false;
+            }
+
+            var rect = outputRect.rect;
+            if (rect.width <= 0f || rect.height <= 0f)
+            {
+                return false;
+            }
+
+            var viewportPoint = new Vector3(
+                Mathf.InverseLerp(rect.xMin, rect.xMax, localPointer.x),
+                Mathf.InverseLerp(rect.yMin, rect.yMax, localPointer.y),
+                0f);
+            var ray = diceCamera.ViewportPointToRay(viewportPoint);
+            var cupPlane = new Plane(
+                diceStageRoot.up,
+                diceStageRoot.TransformPoint(new Vector3(0f, CupHomePosition.y, 0f)));
+            if (!cupPlane.Raycast(ray, out var distance))
+            {
+                return false;
+            }
+
+            localPosition = diceStageRoot.InverseTransformPoint(ray.GetPoint(distance));
+            return true;
         }
 
         private IEnumerator RollDieRoutine(int finalDie)
@@ -1509,17 +2295,17 @@ namespace Tikatooka
             yield return RollDieOnTableRoutine(finalDie);
             CommitRolledDie(GetWorldDieTopFaceValue());
             hasPendingDie = true;
-            RefreshView();
-            yield return new WaitForSeconds(0.7f);
+            yield return new WaitForSeconds(0.12f);
 
             isRolling = false;
             SetDiceOverlayVisible(false);
             RefreshView();
+            FocusFirstAvailableAction();
         }
 
         private IEnumerator PourDieFromCupRoutine(Vector3 startCupPosition, Quaternion startCupRotation)
         {
-            const float pourDuration = 0.62f;
+            const float pourDuration = 0.22f;
             var pourRotation = Quaternion.Euler(CupPourRotation);
             var elapsed = 0f;
             while (elapsed < pourDuration)
@@ -1534,7 +2320,7 @@ namespace Tikatooka
             }
 
             SetCupPose(CupReleasePosition, pourRotation, false);
-            yield return new WaitForFixedUpdate();
+            yield return WaitForPhysicsStep;
         }
 
         private IEnumerator RollDieOnTableRoutine(int spinSeedValue)
@@ -1555,86 +2341,183 @@ namespace Tikatooka
 
             horizontalDirection.Normalize();
             var shake01 = Mathf.InverseLerp(0.18f, 2.35f, shakeEnergy + shakeDistance * 0.002f);
-            var lateral = new Vector3(-horizontalDirection.z, 0f, horizontalDirection.x) * Random.Range(-0.18f, 0.18f);
-            var launchSpeed = Mathf.Lerp(1.25f, 1.9f, shake01) + shakeDirectionChanges * 0.012f;
-            var cupOpeningDirection = diceCupTransform != null ? diceCupTransform.up : horizontalDirection;
-            cupOpeningDirection.y = Mathf.Max(cupOpeningDirection.y, 0.12f);
-            cupOpeningDirection.Normalize();
-            var launchDirection = (horizontalDirection * 0.4f + cupOpeningDirection * 0.6f).normalized;
-            var spinAxis = Vector3.Cross(Vector3.up, horizontalDirection).normalized;
+            var rollDirection = horizontalDirection;
+            if (diceCupTransform != null && diceStageRoot != null)
+            {
+                var cupOpeningDirection = diceStageRoot.InverseTransformDirection(diceCupTransform.up);
+                cupOpeningDirection.y = 0f;
+                if (cupOpeningDirection.sqrMagnitude > 0.01f)
+                {
+                    rollDirection = (horizontalDirection * 0.78f + cupOpeningDirection.normalized * 0.22f).normalized;
+                }
+            }
+
+            var rollWorldDirection = diceStageRoot != null
+                ? diceStageRoot.TransformDirection(rollDirection).normalized
+                : rollDirection.normalized;
+            var lateralWorldDirection = Vector3.Cross(Vector3.up, rollWorldDirection).normalized;
+            var desiredPlanarSpeed = Mathf.Lerp(1.9f, 2.45f, shake01)
+                + Mathf.Min(0.2f, shakeDirectionChanges * 0.015f);
+            var desiredPlanarVelocity = rollWorldDirection * desiredPlanarSpeed
+                + lateralWorldDirection * Random.Range(-0.16f, 0.16f);
+            desiredPlanarVelocity = Vector3.ClampMagnitude(desiredPlanarVelocity, 2.65f);
+            var desiredVerticalSpeed = Mathf.Lerp(0.3f, 0.46f, shake01);
+            var desiredLaunchVelocity = desiredPlanarVelocity + Vector3.up * desiredVerticalSpeed;
+            worldDieBody.AddForce(
+                desiredLaunchVelocity - worldDieBody.linearVelocity,
+                ForceMode.VelocityChange);
+
+            var spinAxis = Vector3.Cross(Vector3.up, rollWorldDirection).normalized;
             var compactSeed = spinSeedValue % 997;
             var spinVariance = new Vector3(
                 Mathf.Sin(compactSeed * 1.73f) * 1.5f,
                 Mathf.Cos(compactSeed * 2.19f) * 2f,
                 Mathf.Sin(compactSeed * 2.61f) * 1.5f);
+            if (diceStageRoot != null)
+            {
+                spinVariance = diceStageRoot.TransformDirection(spinVariance);
+            }
 
-            worldDieBody.AddForce(launchDirection * launchSpeed + lateral + Vector3.up * Mathf.Lerp(0.58f, 0.9f, shake01), ForceMode.VelocityChange);
+            var desiredAngularVelocity = spinAxis * Mathf.Lerp(11f, 16f, shake01)
+                + spinVariance
+                + Random.insideUnitSphere * Mathf.Lerp(1.4f, 2.6f, shake01);
             worldDieBody.AddTorque(
-                spinAxis * Mathf.Lerp(11f, 18f, shake01) +
-                spinVariance +
-                Random.insideUnitSphere * Mathf.Lerp(2.2f, 4.2f, shake01),
+                Vector3.ClampMagnitude(desiredAngularVelocity - worldDieBody.angularVelocity, 18f),
                 ForceMode.VelocityChange);
 
-            const float minRollDuration = 1.05f;
-            const float stableDurationRequired = 0.34f;
-            const float naturalSettleWindow = 4.8f;
+            const float minRollDuration = 0.45f;
+            const float stableDurationRequired = 0.07f;
+            const float maxRollDuration = 1.1f;
             var elapsed = 0f;
             var stableDuration = 0f;
             var appliedCupExitAssist = false;
-            while (elapsed < naturalSettleWindow || stableDuration < stableDurationRequired)
+            while (elapsed < maxRollDuration && stableDuration < stableDurationRequired)
             {
-                elapsed += Time.deltaTime;
+                yield return WaitForPhysicsStep;
+                elapsed += Time.fixedDeltaTime;
                 RecoverEscapedWorldDie();
 
-                if (!appliedCupExitAssist && elapsed >= 0.34f && IsWorldDieInsideCup())
+                var currentPlanarVelocity = Vector3.ProjectOnPlane(worldDieBody.linearVelocity, Vector3.up);
+                var dieCupDistance = diceCupTransform != null
+                    ? Vector2.Distance(
+                        new Vector2(worldDieTransform.localPosition.x, worldDieTransform.localPosition.z),
+                        new Vector2(diceCupTransform.localPosition.x, diceCupTransform.localPosition.z))
+                    : float.MaxValue;
+                var needsSlowExitAssist = !worldDieHasTouchedSurface
+                    && currentPlanarVelocity.magnitude < 0.85f
+                    && (IsWorldDieInsideCup() || dieCupDistance < 0.75f);
+                if (!appliedCupExitAssist && elapsed >= 0.3f && needsSlowExitAssist)
                 {
                     appliedCupExitAssist = true;
-                    worldDieBody.AddForce(launchDirection * 1.15f + Vector3.up * 0.28f, ForceMode.VelocityChange);
-                    worldDieBody.AddTorque(Random.onUnitSphere * 3.6f, ForceMode.VelocityChange);
+                    var assistPlanarVelocity = rollWorldDirection * 1.25f;
+                    var assistVerticalVelocity = Mathf.Max(worldDieBody.linearVelocity.y, 0.18f);
+                    worldDieBody.AddForce(
+                        assistPlanarVelocity + Vector3.up * assistVerticalVelocity - worldDieBody.linearVelocity,
+                        ForceMode.VelocityChange);
+                    var assistAngularVelocity = spinAxis * 8f + Random.onUnitSphere * 1.2f;
+                    worldDieBody.AddTorque(
+                        assistAngularVelocity - worldDieBody.angularVelocity,
+                        ForceMode.VelocityChange);
                 }
 
-                if (elapsed > 3.4f)
+                if (elapsed > 0.55f)
                 {
-                    var assist = Mathf.InverseLerp(3.4f, 5.8f, elapsed);
-                    worldDieBody.linearDamping = Mathf.Lerp(0.18f, 1.8f, assist);
-                    worldDieBody.angularDamping = Mathf.Lerp(0.08f, 1.55f, assist);
+                    var assist = Mathf.InverseLerp(0.55f, 0.92f, elapsed);
+                    worldDieBody.linearDamping = Mathf.Lerp(0.18f, 2.1f, assist);
+                    worldDieBody.angularDamping = Mathf.Lerp(0.1f, 1.9f, assist);
                 }
 
                 var isStable = elapsed >= minRollDuration
                     && worldDieHasTouchedSurface
-                    && worldDieBody.linearVelocity.sqrMagnitude < 0.0036f
-                    && worldDieBody.angularVelocity.sqrMagnitude < 0.0064f
-                    && GetWorldDieTopFaceDot() > 0.88f;
-                stableDuration = isStable ? stableDuration + Time.deltaTime : 0f;
+                    && worldDieBody.linearVelocity.sqrMagnitude < 0.01f
+                    && worldDieBody.angularVelocity.sqrMagnitude < 0.04f
+                    && GetWorldDieTopFaceDot() > 0.9f;
+                stableDuration = isStable ? stableDuration + Time.fixedDeltaTime : 0f;
                 if (stableDuration >= stableDurationRequired)
                 {
                     break;
                 }
 
-                if (elapsed >= 7.2f)
-                {
-                    break;
-                }
-
-                yield return null;
             }
 
             var assistedSettleElapsed = 0f;
-            worldDieBody.linearDamping = 3.2f;
-            worldDieBody.angularDamping = 2.8f;
-            while (assistedSettleElapsed < 1.4f
-                && (worldDieBody.linearVelocity.sqrMagnitude > 0.0025f
-                    || worldDieBody.angularVelocity.sqrMagnitude > 0.0049f))
+            worldDieBody.linearDamping = 4f;
+            worldDieBody.angularDamping = 3.6f;
+            while (assistedSettleElapsed < 0.08f
+                && (worldDieBody.linearVelocity.sqrMagnitude > 0.0064f
+                    || worldDieBody.angularVelocity.sqrMagnitude > 0.0225f))
             {
-                assistedSettleElapsed += Time.deltaTime;
+                yield return WaitForPhysicsStep;
+                assistedSettleElapsed += Time.fixedDeltaTime;
                 RecoverEscapedWorldDie();
-                yield return null;
             }
 
-            worldDieBody.Sleep();
+            var needsRestCorrection = !worldDieHasTouchedSurface
+                || IsWorldDieInsideCup()
+                || !IsWorldDieInsidePlayableTray()
+                || worldDieTransform.localPosition.y < 0.08f
+                || worldDieTransform.localPosition.y > 0.48f
+                || GetWorldDieTopFaceDot() < 0.9f
+                || worldDieBody.linearVelocity.sqrMagnitude > 0.01f
+                || worldDieBody.angularVelocity.sqrMagnitude > 0.04f;
+            if (needsRestCorrection)
+            {
+                yield return StabilizeWorldDieRestPose(GetWorldDieTopFaceValue());
+            }
+
+            if (!worldDieBody.isKinematic)
+            {
+                worldDieBody.linearVelocity = Vector3.zero;
+                worldDieBody.angularVelocity = Vector3.zero;
+                worldDieBody.Sleep();
+            }
+
             worldDieBody.useGravity = false;
             worldDieBody.isKinematic = true;
             worldDieBody.constraints = RigidbodyConstraints.None;
+        }
+
+        private IEnumerator StabilizeWorldDieRestPose(int faceValue)
+        {
+            if (worldDieTransform == null || worldDieBody == null)
+            {
+                yield break;
+            }
+
+            var startPosition = worldDieTransform.localPosition;
+            var startRotation = worldDieTransform.localRotation;
+            var targetPosition = new Vector3(
+                Mathf.Clamp(startPosition.x, -1.45f, 0.75f),
+                0.17f,
+                Mathf.Clamp(startPosition.z, -0.64f, 0.68f));
+            if (IsWorldDieInsideCup() || startPosition.y > 0.48f)
+            {
+                targetPosition = new Vector3(DieResultPosition.x, 0.17f, DieResultPosition.z);
+            }
+
+            var targetRotation = GetWorldDieRotationForFace(faceValue, startRotation.eulerAngles.y);
+            if (!worldDieBody.isKinematic)
+            {
+                worldDieBody.linearVelocity = Vector3.zero;
+                worldDieBody.angularVelocity = Vector3.zero;
+            }
+
+            worldDieBody.useGravity = false;
+            worldDieBody.isKinematic = true;
+
+            const float correctionDuration = 0.05f;
+            var elapsed = 0f;
+            while (elapsed < correctionDuration)
+            {
+                elapsed += Time.deltaTime;
+                var progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / correctionDuration));
+                worldDieTransform.localPosition = Vector3.Lerp(startPosition, targetPosition, progress);
+                worldDieTransform.localRotation = Quaternion.Slerp(startRotation, targetRotation, progress);
+                yield return null;
+            }
+
+            worldDieTransform.localPosition = targetPosition;
+            worldDieTransform.localRotation = targetRotation;
         }
 
         private void HandleCellClick(int playerIndex, int row, int column)
@@ -1671,6 +2554,7 @@ namespace Tikatooka
             AdvanceTurn();
             RefreshView();
             StartPlacementPulse(playerIndex, row, placedColumn);
+            FocusFirstAvailableAction();
         }
 
         private void AttackDie(int targetPlayer, int row, int column)
@@ -1702,6 +2586,7 @@ namespace Tikatooka
                 isAttackAnimating = false;
                 ClearAttackAnimationLayer();
                 RefreshView();
+                FocusFirstAvailableAction();
                 yield break;
             }
 
@@ -1714,6 +2599,7 @@ namespace Tikatooka
             isAttackAnimating = false;
             ClearAttackAnimationLayer();
             RefreshView();
+            FocusFirstAvailableAction();
         }
 
         private IEnumerator PlayAttackCollisionAnimation(int targetPlayer, int row, int[] targetColumns, int attackValue)
@@ -1823,8 +2709,10 @@ namespace Tikatooka
         {
             var dieObject = CreateUiObject(name, attackAnimationLayer.transform);
             var dieImage = dieObject.AddComponent<Image>();
-            dieImage.sprite = diceFaceSprite;
-            dieImage.color = GetCellFaceColor(value, attackProtected);
+            dieImage.sprite = diceFaceArtSprite != null ? diceFaceArtSprite : diceFaceSprite;
+            dieImage.type = Image.Type.Simple;
+            dieImage.preserveAspect = false;
+            dieImage.color = GetDiceFaceArtTint(GetCellFaceColor(value, attackProtected));
             dieImage.raycastTarget = false;
             var canvasGroup = dieObject.AddComponent<CanvasGroup>();
             canvasGroup.blocksRaycasts = false;
@@ -1842,6 +2730,10 @@ namespace Tikatooka
             dieRect.sizeDelta = size;
             dieRect.anchoredPosition = anchoredPosition;
 
+            if (diceFaceArtSprite == null)
+            {
+                CreateDiceCeramicInlay(dieRect, 0.1f, 0.34f);
+            }
             CreateFlyingDiePips(dieRect, value, attackProtected);
             return dieRect;
         }
@@ -1862,7 +2754,9 @@ namespace Tikatooka
                 new Vector2(offset, -offset)
             };
 
-            var pipColor = attackProtected || value == 6 ? Color.white : (Color)new Color32(31, 35, 39, 255);
+            var pipColor = diceFaceArtSprite != null && !attackProtected
+                ? (Color)new Color32(31, 43, 39, 255)
+                : attackProtected || value == 6 ? Color.white : (Color)new Color32(31, 35, 39, 255);
             for (var index = 0; index < positions.Length; index++)
             {
                 if (!ShouldShowPip(value, index))
@@ -2035,6 +2929,7 @@ namespace Tikatooka
             }
 
             isAiThinking = false;
+            FocusFirstAvailableAction();
         }
 
         private IEnumerator AiRollDieRoutine()
@@ -2053,9 +2948,8 @@ namespace Tikatooka
             nextRollCanPlaceOnOpponent = false;
             SetDiceOverlayVisible(true);
             ResetDiceStage();
-            RefreshView();
 
-            yield return new WaitForSeconds(0.16f);
+            yield return new WaitForSeconds(0.12f);
             yield return AnimateAiCupShakeRoutine();
             cupReleaseStarted = true;
             yield return RollDieRoutine(BuildShakeMotionSeed());
@@ -2063,7 +2957,7 @@ namespace Tikatooka
 
         private IEnumerator AnimateAiCupShakeRoutine()
         {
-            const float duration = 0.72f;
+            const float duration = 0.54f;
             var intensity = Random.Range(0.78f, 1.18f);
             var elapsed = 0f;
             var previousOffset = Vector3.zero;
@@ -2229,22 +3123,22 @@ namespace Tikatooka
 
         private int EvaluateAiAttack(int targetPlayer, int row, int column)
         {
-            var targetColumns = boards[targetPlayer].GetMatchingGroupColumns(row, column);
-            if (targetColumns.Length == 0)
+            var targetGroupSize = boards[targetPlayer].GetMatchingGroupSize(row, column);
+            if (targetGroupSize == 0)
             {
                 return int.MinValue;
             }
 
             var aiScore = boards[AiPlayerIndex].CalculateSectionScoreUnits(row);
             var humanBefore = boards[0].CalculateSectionScoreUnits(row);
-            var humanAfter = CalculateSectionScoreUnitsWithoutColumns(boards[0], row, targetColumns);
+            var humanAfter = boards[0].CalculateSectionScoreUnitsWithoutMatchingGroup(row, column);
             var beforeOutcome = EvaluateSectionForAi(aiScore, humanBefore);
             var afterOutcome = EvaluateSectionForAi(aiScore, humanAfter);
             var beforeMatch = EvaluateProjectedMatchForAi(row, aiScore, humanBefore);
             var afterMatch = EvaluateProjectedMatchForAi(row, aiScore, humanAfter);
             var removedScore = humanBefore - humanAfter;
             var rowPressure = boards[AiPlayerIndex].CountSectionFilled(row) * 22;
-            return targetColumns.Length * 320 + removedScore * 6 + (afterOutcome - beforeOutcome) + (afterMatch - beforeMatch) + rowPressure + currentDie * 20 + Random.Range(0, 22);
+            return targetGroupSize * 320 + removedScore * 6 + (afterOutcome - beforeOutcome) + (afterMatch - beforeMatch) + rowPressure + currentDie * 20 + Random.Range(0, 22);
         }
 
         private int EvaluateProjectedMatchForAi(int overrideRow, int aiScoreOverride, int humanScoreOverride)
@@ -2307,63 +3201,18 @@ namespace Tikatooka
 
         private int CalculateSectionScoreUnitsWithExtra(PlayerBoard board, int row, int extraValue)
         {
-            var counts = new int[7];
-            for (var column = 0; column < BoardSize; column++)
-            {
-                var value = board.Cells[row, column];
-                if (value > 0 && value < counts.Length)
-                {
-                    counts[value]++;
-                }
-            }
-
-            if (extraValue > 0 && extraValue < counts.Length)
-            {
-                counts[extraValue]++;
-            }
-
-            return CalculateScoreUnitsFromCounts(counts);
-        }
-
-        private int CalculateSectionScoreUnitsWithoutColumns(PlayerBoard board, int row, int[] ignoredColumns)
-        {
-            var counts = new int[7];
-            for (var column = 0; column < BoardSize; column++)
-            {
-                if (IsIgnoredColumn(ignoredColumns, column))
-                {
-                    continue;
-                }
-
-                var value = board.Cells[row, column];
-                if (value > 0 && value < counts.Length)
-                {
-                    counts[value]++;
-                }
-            }
-
-            return CalculateScoreUnitsFromCounts(counts);
-        }
-
-        private static bool IsIgnoredColumn(int[] ignoredColumns, int column)
-        {
-            for (var index = 0; index < ignoredColumns.Length; index++)
-            {
-                if (ignoredColumns[index] == column)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static int CalculateScoreUnitsFromCounts(int[] counts)
-        {
             var scoreUnits = 0;
-            for (var value = 1; value < counts.Length; value++)
+            for (var value = 1; value <= 6; value++)
             {
-                var count = counts[value];
+                var count = extraValue == value ? 1 : 0;
+                for (var column = 0; column < BoardSize; column++)
+                {
+                    if (board.Cells[row, column] == value)
+                    {
+                        count++;
+                    }
+                }
+
                 if (count <= 0)
                 {
                     continue;
@@ -2472,7 +3321,9 @@ namespace Tikatooka
                 board.ProgressText.text = $"{board.FilledCount}/{board.Capacity}";
                 RefreshBoardProgressBar(board, player);
                 var isActiveBoard = player == activePlayer && !placementComplete;
-                board.PanelImage.color = isActiveBoard ? new Color32(240, 250, 247, 255) : PanelColor;
+                board.PanelImage.color = panelParchmentSprite != null
+                    ? Color.white
+                    : isActiveBoard ? new Color32(240, 250, 247, 255) : PanelColor;
                 if (board.PanelOutline != null)
                 {
                     board.PanelOutline.effectColor = isActiveBoard ? PlayerAccentColors[player] : Color.clear;
@@ -2494,7 +3345,7 @@ namespace Tikatooka
                         button.interactable = !IsAiTurnActive() && (canPlace || canAttack);
                         text.text = string.Empty;
                         text.color = GetCellTextColor(value, canPlace, canAttack, isAttackProtected);
-                        button.image.color = GetCellColor(player, column, value, canPlace, canAttack);
+                        button.image.color = GetCellPlateTint(GetCellColor(player, column, value, canPlace, canAttack));
                         RefreshCellPips(board, row, column, value, canPlace, canAttack, isAttackProtected);
                         RefreshCellOutline(board, row, column, canPlace, canAttack);
                     }
@@ -2504,9 +3355,14 @@ namespace Tikatooka
             RefreshScoreComparison();
 
             rollButton.interactable = gameStarted && !IsAiTurnActive() && !placementComplete && !hasPendingDie && !isRolling && !isAttackAnimating && !boards[activePlayer].IsFull;
-            rollButton.image.color = rollButton.interactable ? ButtonColor : DisabledButtonColor;
+            rollButton.image.color = buttonPrimarySprite != null
+                ? rollButton.interactable ? Color.white : new Color(0.58f, 0.58f, 0.58f, 0.86f)
+                : rollButton.interactable ? ButtonColor : DisabledButtonColor;
             if (rollButtonText != null)
             {
+                rollButtonText.color = buttonPrimarySprite != null
+                    ? rollButton.interactable ? new Color32(52, 29, 16, 255) : ArtDecoCream
+                    : TextColor;
                 if (isRolling)
                 {
                     rollButtonText.text = "흔드는 중";
@@ -2525,14 +3381,15 @@ namespace Tikatooka
                 }
                 else if (hasPendingDie)
                 {
-                    rollButtonText.text = "배치 대기";
+                    rollButtonText.text = "칸을 선택하세요";
                 }
                 else
                 {
                     rollButtonText.text = nextRollCanAttack ? "컵 굴리기" : "보너스 굴리기";
                 }
             }
-            resetButton.interactable = true;
+            resetButton.interactable = gameStarted;
+            modeButton.interactable = gameStarted;
             RefreshDrawnDieDisplay();
             RefreshMatchScoreDisplay();
 
@@ -2549,7 +3406,11 @@ namespace Tikatooka
             }
 
             statusText.text = BuildStatusText();
-            statusText.color = placementComplete ? TextColor : PlayerAccentColors[activePlayer];
+            statusText.color = controlPlaqueSprite != null
+                ? placementComplete
+                    ? ArtDecoCream
+                    : Color.Lerp(ArtDecoCream, PlayerAccentColors[activePlayer], 0.42f)
+                : placementComplete ? TextColor : PlayerAccentColors[activePlayer];
             RefreshHeaderTint();
             RefreshResultBanner();
             TryStartAiTurn();
@@ -2559,6 +3420,12 @@ namespace Tikatooka
         {
             if (headerImage == null)
             {
+                return;
+            }
+
+            if (controlPlaqueSprite != null)
+            {
+                headerImage.color = Color.white;
                 return;
             }
 
@@ -2669,15 +3536,17 @@ namespace Tikatooka
             if (face != null)
             {
                 face.gameObject.SetActive(displayValue > 0);
-                face.color = isPreview
+                face.color = GetDiceFaceArtTint(isPreview
                     ? GetPreviewCellFaceColor(displayValue, displayProtected)
-                    : GetCellFaceColor(displayValue, displayProtected);
+                    : GetCellFaceColor(displayValue, displayProtected));
             }
 
-            var pipColor = displayProtected || displayValue == 6 ? Color.white : (Color)new Color32(31, 35, 39, 255);
+            var pipColor = diceFaceArtSprite != null && !displayProtected
+                ? (Color)new Color32(31, 43, 39, 255)
+                : displayProtected || displayValue == 6 ? Color.white : (Color)new Color32(31, 35, 39, 255);
             if (isPreview)
             {
-                pipColor.a = displayProtected || displayValue == 6 ? 0.9f : 0.72f;
+                pipColor.a = displayProtected || displayValue == 6 ? 0.58f : 0.42f;
             }
 
             for (var index = 0; index < 7; index++)
@@ -2699,7 +3568,7 @@ namespace Tikatooka
                 var showMarker = displayValue > 0 && displayProtected;
                 marker.gameObject.SetActive(showMarker);
                 var markerColor = ButtonColor;
-                markerColor.a = isPreview ? 0.66f : 1f;
+                markerColor.a = isPreview ? 0.44f : 1f;
                 marker.color = markerColor;
             }
         }
@@ -2716,7 +3585,7 @@ namespace Tikatooka
                 drawnDieImage.color = PanelColor;
                 drawnDieLabel.text = "공격";
                 drawnDieLabel.color = MutedTextColor;
-                drawnDieFaceImage.color = PanelColor;
+                drawnDieFaceImage.color = GetDiceFaceArtTint(PanelColor);
                 drawnDieText.text = string.Empty;
                 RefreshDrawnDiePips(0, Color.clear);
                 SetDrawnDieProtectionMarker(false, 0f);
@@ -2729,9 +3598,12 @@ namespace Tikatooka
                 var textColor = !pendingDieCanAttack || currentDie == 6 ? Color.white : TextColor;
                 drawnDieLabel.text = pendingDieCanAttack ? "주사위" : "공격 불가";
                 drawnDieLabel.color = textColor;
-                drawnDieFaceImage.color = pendingDieCanAttack ? DieColors[Mathf.Clamp(currentDie - 1, 0, DieColors.Length - 1)] : Color.black;
+                drawnDieFaceImage.color = GetDiceFaceArtTint(pendingDieCanAttack ? DieColors[Mathf.Clamp(currentDie - 1, 0, DieColors.Length - 1)] : Color.black);
                 drawnDieText.text = string.Empty;
-                RefreshDrawnDiePips(currentDie, textColor);
+                var pipColor = diceFaceArtSprite != null && pendingDieCanAttack
+                    ? (Color)new Color32(31, 43, 39, 255)
+                    : textColor;
+                RefreshDrawnDiePips(currentDie, pipColor);
                 SetDrawnDieProtectionMarker(!pendingDieCanAttack, 1f);
                 return;
             }
@@ -2741,7 +3613,7 @@ namespace Tikatooka
                 drawnDieImage.color = pendingDieCanAttack ? new Color32(255, 246, 226, 255) : Color.black;
                 drawnDieLabel.text = pendingDieCanAttack ? "주사위" : "공격 불가";
                 drawnDieLabel.color = pendingDieCanAttack ? MutedTextColor : Color.white;
-                drawnDieFaceImage.color = pendingDieCanAttack ? PanelColor : Color.black;
+                drawnDieFaceImage.color = GetDiceFaceArtTint(pendingDieCanAttack ? PanelColor : Color.black);
                 drawnDieText.color = pendingDieCanAttack ? TextColor : Color.white;
                 drawnDieText.text = "?";
                 RefreshDrawnDiePips(0, Color.clear);
@@ -2752,7 +3624,7 @@ namespace Tikatooka
             drawnDieImage.color = PanelColor;
             drawnDieLabel.text = "주사위";
             drawnDieLabel.color = MutedTextColor;
-            drawnDieFaceImage.color = PanelColor;
+            drawnDieFaceImage.color = GetDiceFaceArtTint(PanelColor);
             drawnDieText.color = MutedTextColor;
             drawnDieText.text = "-";
             RefreshDrawnDiePips(0, Color.clear);
@@ -2794,10 +3666,16 @@ namespace Tikatooka
                 return;
             }
 
+            var resultJustOpened = placementComplete && !resultBanner.activeSelf;
             resultBanner.SetActive(placementComplete);
             if (!placementComplete)
             {
                 return;
+            }
+
+            if (resultJustOpened && EventSystem.current != null && resultResetButton != null)
+            {
+                EventSystem.current.SetSelectedGameObject(resultResetButton.gameObject);
             }
 
             var playerOneWins = CountSectionWins(0);
@@ -2812,12 +3690,12 @@ namespace Tikatooka
                 if (resultTitleText != null)
                 {
                     resultTitleText.text = "무승부";
-                    resultTitleText.color = TieColor;
+                    resultTitleText.color = controlPlaqueSprite != null ? ArtDecoCream : TieColor;
                 }
 
                 if (resultCardImage != null)
                 {
-                    resultCardImage.color = PanelColor;
+                    resultCardImage.color = controlPlaqueSprite != null ? Color.white : PanelColor;
                 }
 
                 return;
@@ -2827,12 +3705,16 @@ namespace Tikatooka
             if (resultTitleText != null)
             {
                 resultTitleText.text = $"{GetPlayerDisplayName(winner)} 승리";
-                resultTitleText.color = PlayerAccentColors[winner];
+                resultTitleText.color = controlPlaqueSprite != null
+                    ? Color.Lerp(ArtDecoCream, PlayerAccentColors[winner], 0.5f)
+                    : PlayerAccentColors[winner];
             }
 
             if (resultCardImage != null)
             {
-                resultCardImage.color = Color.Lerp(PanelColor, PlayerAccentColors[winner], 0.12f);
+                resultCardImage.color = controlPlaqueSprite != null
+                    ? Color.white
+                    : Color.Lerp(PanelColor, PlayerAccentColors[winner], 0.12f);
             }
         }
 
@@ -2990,6 +3872,10 @@ namespace Tikatooka
                 return;
             }
 
+            // Keep the cup visually locked to the pointer instead of waiting for
+            // the next physics interpolation sample.
+            diceCupTransform.localPosition = localPosition;
+            diceCupTransform.localRotation = localRotation;
             diceCupBody.position = diceStageRoot.TransformPoint(localPosition);
             diceCupBody.rotation = diceStageRoot.rotation * localRotation;
         }
@@ -3002,28 +3888,27 @@ namespace Tikatooka
                 return;
             }
 
+            worldDieAttachedToCup = true;
+            dieInCupBaseLocalRotation = Random.rotationUniform;
             worldDieBody.isKinematic = true;
             worldDieBody.useGravity = false;
             worldDieBody.constraints = RigidbodyConstraints.None;
+            worldDieBody.collisionDetectionMode = CollisionDetectionMode.Discrete;
             worldDieBody.position = diceStageRoot.TransformPoint(GetDiePositionInCup(CupHomePosition, Quaternion.identity, DieInCupOffset));
-            worldDieBody.rotation = diceStageRoot.rotation * Random.rotationUniform;
-            worldDieBody.linearDamping = 0.07f;
-            worldDieBody.angularDamping = 0.035f;
+            worldDieBody.rotation = diceStageRoot.rotation * dieInCupBaseLocalRotation;
+            worldDieBody.linearDamping = DieLinearDamping;
+            worldDieBody.angularDamping = DieAngularDamping;
             if (worldDieCollider != null)
             {
-                worldDieCollider.enabled = true;
+                worldDieCollider.enabled = false;
             }
 
-            worldDieBody.isKinematic = false;
-            worldDieBody.linearVelocity = Vector3.zero;
-            worldDieBody.angularVelocity = Vector3.zero;
-            worldDieBody.useGravity = true;
-            worldDieBody.WakeUp();
         }
 
         private void PrepareWorldDieForManualPose()
         {
             worldDieHasTouchedSurface = false;
+            worldDieAttachedToCup = false;
             if (worldDieBody != null)
             {
                 if (!worldDieBody.isKinematic)
@@ -3048,6 +3933,7 @@ namespace Tikatooka
         private void PrepareWorldDieForPhysics(bool preserveVelocity)
         {
             worldDieHasTouchedSurface = false;
+            worldDieAttachedToCup = false;
             if (worldDieCollider != null)
             {
                 worldDieCollider.enabled = true;
@@ -3062,8 +3948,9 @@ namespace Tikatooka
             worldDieBody.isKinematic = false;
             worldDieBody.useGravity = true;
             worldDieBody.constraints = RigidbodyConstraints.None;
-            worldDieBody.linearDamping = 0.07f;
-            worldDieBody.angularDamping = 0.035f;
+            worldDieBody.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            worldDieBody.linearDamping = DieLinearDamping;
+            worldDieBody.angularDamping = DieAngularDamping;
             if (!preserveVelocity || wasKinematic)
             {
                 worldDieBody.linearVelocity = Vector3.zero;
@@ -3107,10 +3994,24 @@ namespace Tikatooka
             }
 
             var cupLocalPosition = diceCupTransform.InverseTransformPoint(worldDieTransform.position);
-            var radialDistance = new Vector2(cupLocalPosition.x, cupLocalPosition.z).sqrMagnitude;
+            var radialDistanceSquared = new Vector2(cupLocalPosition.x, cupLocalPosition.z).sqrMagnitude;
             return cupLocalPosition.y > -0.62f
                 && cupLocalPosition.y < 0.56f
-                && radialDistance < 0.3f;
+                && radialDistanceSquared < CupDieCenterRadius * CupDieCenterRadius;
+        }
+
+        private bool IsWorldDieInsidePlayableTray()
+        {
+            if (worldDieTransform == null)
+            {
+                return false;
+            }
+
+            var position = worldDieTransform.localPosition;
+            return position.x >= PlayableDieMinX
+                && position.x <= PlayableDieMaxX
+                && position.z >= PlayableDieMinZ
+                && position.z <= PlayableDieMaxZ;
         }
 
         private bool IsDiceCupCollider(Collider other)
@@ -3132,14 +4033,88 @@ namespace Tikatooka
 
         private void SetDiceOverlayVisible(bool visible)
         {
-            if (diceOverlay != null)
+            if (visible)
             {
-                diceOverlay.SetActive(visible);
+                if (diceStageRoot != null)
+                {
+                    diceStageRoot.gameObject.SetActive(true);
+                }
+
+                if (boardUiRoot != null)
+                {
+                    boardUiRoot.SetActive(false);
+                }
+
+                if (diceOverlay != null)
+                {
+                    diceOverlay.SetActive(true);
+                }
+
+                if (diceCamera != null)
+                {
+                    diceCamera.enabled = true;
+                }
+
+                if (isWaitingForCupShake && diceInputSurface != null && EventSystem.current != null)
+                {
+                    EventSystem.current.SetSelectedGameObject(diceInputSurface);
+                }
+
+                return;
+            }
+
+            if (EventSystem.current != null && EventSystem.current.currentSelectedGameObject == diceInputSurface)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
             }
 
             if (diceCamera != null)
             {
-                diceCamera.enabled = visible;
+                diceCamera.enabled = false;
+            }
+
+            if (diceOverlay != null)
+            {
+                diceOverlay.SetActive(false);
+            }
+
+            if (diceStageRoot != null)
+            {
+                diceStageRoot.gameObject.SetActive(false);
+            }
+
+            if (boardUiRoot != null)
+            {
+                boardUiRoot.SetActive(true);
+            }
+        }
+
+        private void FocusFirstAvailableAction()
+        {
+            if (EventSystem.current == null || !gameStarted || IsAiTurnActive() || placementComplete)
+            {
+                return;
+            }
+
+            for (var player = 0; player < PlayerCount; player++)
+            {
+                for (var row = 0; row < BoardSize; row++)
+                {
+                    for (var column = 0; column < BoardSize; column++)
+                    {
+                        var button = boards[player]?.CellButtons[row, column];
+                        if (button != null && button.interactable)
+                        {
+                            EventSystem.current.SetSelectedGameObject(button.gameObject);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            if (rollButton != null && rollButton.interactable)
+            {
+                EventSystem.current.SetSelectedGameObject(rollButton.gameObject);
             }
         }
 
@@ -3264,10 +4239,12 @@ namespace Tikatooka
                 {
                     var isEmptyTie = playerOneScoreUnits == 0 && playerTwoScoreUnits == 0;
                     sectionResultTexts[section].text = isEmptyTie ? "-" : "무";
-                    sectionResultTexts[section].color = isEmptyTie ? MutedTextColor : TieColor;
+                    sectionResultTexts[section].color = isEmptyTie
+                        ? scoreTowerSprite != null ? ArtDecoMutedGold : MutedTextColor
+                        : scoreTowerSprite != null ? ArtDecoCream : TieColor;
                     var tieColor = isEmptyTie ? ScoreNeutralColor : TieColor;
-                    sectionScoreImages[0, section].color = tieColor;
-                    sectionScoreImages[1, section].color = tieColor;
+                    sectionScoreImages[0, section].color = GetScoreMedallionTint(tieColor);
+                    sectionScoreImages[1, section].color = GetScoreMedallionTint(tieColor);
                     SetSectionRowColor(section, isEmptyTie ? Color.clear : TieColor, isEmptyTie ? 0f : 0.1f);
                     continue;
                 }
@@ -3276,8 +4253,8 @@ namespace Tikatooka
                     ? "1P승"
                     : currentMode == MatchMode.Pve ? "AI승" : "2P승";
                 sectionResultTexts[section].color = PlayerAccentColors[winner];
-                sectionScoreImages[0, section].color = winner == 0 ? WinColor : LoseColor;
-                sectionScoreImages[1, section].color = winner == 1 ? WinColor : LoseColor;
+                sectionScoreImages[0, section].color = GetScoreMedallionTint(winner == 0 ? WinColor : LoseColor);
+                sectionScoreImages[1, section].color = GetScoreMedallionTint(winner == 1 ? WinColor : LoseColor);
                 SetSectionRowColor(section, PlayerAccentColors[winner], 0.12f);
             }
         }
@@ -3370,8 +4347,51 @@ namespace Tikatooka
             }
 
             var color = isAttackProtected ? Color.black : (Color)DieColors[Mathf.Clamp(value - 1, 0, DieColors.Length - 1)];
-            color.a = isAttackProtected ? 0.76f : 0.58f;
+            color.a = isAttackProtected ? 0.46f : 0.32f;
             return color;
+        }
+
+        private Color GetCellPlateTint(Color stateColor)
+        {
+            if (cellPlateSprite == null)
+            {
+                return stateColor;
+            }
+
+            var alpha = stateColor.a;
+            stateColor.a = 1f;
+            var tint = Color.Lerp(Color.white, stateColor, 0.5f);
+            tint.a = alpha;
+            return tint;
+        }
+
+        private Color GetScoreMedallionTint(Color stateColor)
+        {
+            if (scoreMedallionSprite == null)
+            {
+                return stateColor;
+            }
+
+            var alpha = stateColor.a;
+            stateColor.a = 1f;
+            var tint = Color.Lerp(Color.white, stateColor, 0.18f);
+            tint.a = alpha;
+            return tint;
+        }
+
+        private Color GetDiceFaceArtTint(Color stateColor)
+        {
+            if (diceFaceArtSprite == null)
+            {
+                return stateColor;
+            }
+
+            var alpha = stateColor.a;
+            stateColor.a = 1f;
+            var tintStrength = stateColor.grayscale < 0.08f ? 0.62f : 0.14f;
+            var tint = Color.Lerp(Color.white, stateColor, tintStrength);
+            tint.a = alpha;
+            return tint;
         }
 
         private static Color GetCellTextColor(int value, bool canPlace, bool canAttack, bool isAttackProtected)
@@ -3407,8 +4427,8 @@ namespace Tikatooka
             var colors = button.colors;
             colors.normalColor = Color.white;
             colors.highlightedColor = new Color32(255, 246, 226, 255);
-            colors.pressedColor = new Color32(224, 233, 229, 255);
-            colors.selectedColor = Color.white;
+            colors.pressedColor = new Color32(211, 184, 126, 255);
+            colors.selectedColor = new Color32(255, 231, 174, 255);
             colors.disabledColor = new Color32(214, 216, 213, 255);
             button.colors = colors;
 
@@ -3421,6 +4441,25 @@ namespace Tikatooka
             textRect.offsetMax = Vector2.zero;
 
             return button;
+        }
+
+        private static void ApplyGeneratedButtonSkin(Button button, Sprite generatedSprite, Color fallbackColor)
+        {
+            if (button == null || button.image == null)
+            {
+                return;
+            }
+
+            if (generatedSprite != null)
+            {
+                button.image.sprite = generatedSprite;
+                button.image.type = Image.Type.Sliced;
+                button.image.preserveAspect = false;
+                button.image.color = Color.white;
+                return;
+            }
+
+            button.image.color = fallbackColor;
         }
 
         private static void AddControlButtonDepth(GameObject buttonObject)
@@ -3466,10 +4505,22 @@ namespace Tikatooka
                 shader = Shader.Find("Diffuse");
             }
 
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Texture");
+            }
+
+            if (shader == null)
+            {
+                Debug.LogError($"Tikatooka: no compatible runtime shader was found for {name}.");
+                return null;
+            }
+
             var material = new Material(shader)
             {
                 name = name,
-                color = color
+                color = color,
+                enableInstancing = true
             };
 
             if (transparent)
@@ -3485,6 +4536,39 @@ namespace Tikatooka
             }
 
             return material;
+        }
+
+        private static void ApplyStageTexture(Material material, Texture2D texture, Vector2 tiling, float smoothness)
+        {
+            if (material == null || texture == null)
+            {
+                return;
+            }
+
+            material.mainTexture = texture;
+            material.mainTextureScale = tiling;
+            if (material.HasProperty("_Glossiness"))
+            {
+                material.SetFloat("_Glossiness", smoothness);
+            }
+        }
+
+        private static void SetMaterialFinish(Material material, float metallic, float smoothness)
+        {
+            if (material == null)
+            {
+                return;
+            }
+
+            if (material.HasProperty("_Metallic"))
+            {
+                material.SetFloat("_Metallic", metallic);
+            }
+
+            if (material.HasProperty("_Glossiness"))
+            {
+                material.SetFloat("_Glossiness", smoothness);
+            }
         }
 
         private static Mesh CreateRoundedCubeMesh(float halfExtent, float edgeRadius, int subdivisions)
@@ -3523,6 +4607,7 @@ namespace Tikatooka
             var verticesPerFace = (subdivisions + 1) * (subdivisions + 1);
             var vertices = new Vector3[verticesPerFace * faceNormals.Length];
             var normals = new Vector3[vertices.Length];
+            var uvs = new Vector2[vertices.Length];
             var triangles = new int[subdivisions * subdivisions * 6 * faceNormals.Length];
             var vertex = 0;
             var triangle = 0;
@@ -3544,6 +4629,7 @@ namespace Tikatooka
                         var edgeDirection = (cubePoint - innerPoint).normalized;
                         vertices[vertex] = innerPoint + edgeDirection * edgeRadius;
                         normals[vertex] = edgeDirection;
+                        uvs[vertex] = new Vector2(x / (float)subdivisions, y / (float)subdivisions);
                         vertex++;
                     }
                 }
@@ -3571,6 +4657,7 @@ namespace Tikatooka
                 name = "Rounded World Die Mesh",
                 vertices = vertices,
                 normals = normals,
+                uv = uvs,
                 triangles = triangles
             };
             mesh.RecalculateBounds();
@@ -3585,6 +4672,7 @@ namespace Tikatooka
             };
 
             var vertices = new Vector3[(segments + 1) * 2];
+            var uvs = new Vector2[vertices.Length];
             var triangles = new int[segments * 6];
             for (var index = 0; index <= segments; index++)
             {
@@ -3593,6 +4681,9 @@ namespace Tikatooka
                 var z = Mathf.Sin(angle) * radius;
                 vertices[index * 2] = new Vector3(x, -height * 0.5f, z);
                 vertices[index * 2 + 1] = new Vector3(x, height * 0.5f, z);
+                var u = index / (float)segments;
+                uvs[index * 2] = new Vector2(u, 0f);
+                uvs[index * 2 + 1] = new Vector2(u, 1f);
             }
 
             for (var index = 0; index < segments; index++)
@@ -3620,6 +4711,7 @@ namespace Tikatooka
             }
 
             mesh.vertices = vertices;
+            mesh.uv = uvs;
             mesh.triangles = triangles;
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
@@ -3634,6 +4726,7 @@ namespace Tikatooka
             };
 
             var vertices = new Vector3[(segments + 1) * 2];
+            var uvs = new Vector2[vertices.Length];
             var triangles = new int[segments * 6];
             for (var index = 0; index <= segments; index++)
             {
@@ -3642,6 +4735,8 @@ namespace Tikatooka
                 var inner = new Vector3(Mathf.Cos(angle) * innerRadius, 0f, Mathf.Sin(angle) * innerRadius);
                 vertices[index * 2] = outer;
                 vertices[index * 2 + 1] = inner;
+                uvs[index * 2] = new Vector2(0.5f + outer.x / (outerRadius * 2f), 0.5f + outer.z / (outerRadius * 2f));
+                uvs[index * 2 + 1] = new Vector2(0.5f + inner.x / (outerRadius * 2f), 0.5f + inner.z / (outerRadius * 2f));
             }
 
             for (var index = 0; index < segments; index++)
@@ -3657,6 +4752,7 @@ namespace Tikatooka
             }
 
             mesh.vertices = vertices;
+            mesh.uv = uvs;
             mesh.triangles = triangles;
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
@@ -3665,8 +4761,21 @@ namespace Tikatooka
 
         private void OnDestroy()
         {
+            RestoreRuntimeSettings();
+            RestoreSceneCameraMasks();
+
             if (diceRenderTexture != null)
             {
+                if (diceCamera != null)
+                {
+                    diceCamera.targetTexture = null;
+                }
+
+                if (diceOutputImage != null)
+                {
+                    diceOutputImage.texture = null;
+                }
+
                 diceRenderTexture.Release();
                 Destroy(diceRenderTexture);
                 diceRenderTexture = null;
@@ -3677,7 +4786,6 @@ namespace Tikatooka
             DestroyStageMaterial(dieMaterial);
             DestroyStageMaterial(pipMaterial);
             DestroyStageMaterial(tableMaterial);
-            DestroyStageMaterial(woodGrainMaterial);
             DestroyStageMaterial(feltMaterial);
             DestroyStageMaterial(trayRimMaterial);
             DestroyStageMaterial(trayHighlightMaterial);
@@ -3689,10 +4797,89 @@ namespace Tikatooka
             DestroyRuntimeSprite(scoreBadgeSprite);
             DestroyRuntimeSprite(diceFaceSprite);
             DestroyRuntimeSprite(dicePipSprite);
+            DestroyRuntimeObject(boardPatternSprite);
+            DestroyRuntimeObject(diceCeramicSprite);
+            DestroyRuntimeObject(panelParchmentSprite);
+            DestroyRuntimeObject(mainBoardBackdropSprite);
+            DestroyRuntimeObject(scoreTowerSprite);
+            DestroyRuntimeObject(controlPlaqueSprite);
+            DestroyRuntimeObject(buttonPrimarySprite);
+            DestroyRuntimeObject(buttonSecondarySprite);
+            DestroyRuntimeObject(buttonPvpSprite);
+            DestroyRuntimeObject(buttonPveSprite);
+            DestroyRuntimeObject(cellPlateSprite);
+            DestroyRuntimeObject(scoreMedallionSprite);
+            DestroyRuntimeObject(diceFaceArtSprite);
+            boardPatternSprite = null;
+            diceCeramicSprite = null;
+            panelParchmentSprite = null;
+            mainBoardBackdropSprite = null;
+            scoreTowerSprite = null;
+            controlPlaqueSprite = null;
+            buttonPrimarySprite = null;
+            buttonSecondarySprite = null;
+            buttonPvpSprite = null;
+            buttonPveSprite = null;
+            cellPlateSprite = null;
+            scoreMedallionSprite = null;
+            diceFaceArtSprite = null;
+            boardPatternTexture = null;
+            diceCeramicTexture = null;
+            panelParchmentTexture = null;
+            mainBoardBackdropTexture = null;
+            scoreTowerTexture = null;
+            controlPlaqueTexture = null;
+            buttonPrimaryTexture = null;
+            buttonSecondaryTexture = null;
+            buttonPvpTexture = null;
+            buttonPveTexture = null;
+            cellPlateTexture = null;
+            scoreMedallionTexture = null;
+            diceFaceArtTexture = null;
+            worldDieSurfaceTexture = null;
+            walnutTableTexture = null;
+            cupLeatherTexture = null;
             if (ownsDefaultFont)
             {
                 DestroyRuntimeObject(defaultFont);
             }
+        }
+
+        private void RestoreRuntimeSettings()
+        {
+            if (!runtimeSettingsApplied)
+            {
+                return;
+            }
+
+            QualitySettings.vSyncCount = originalVSyncCount;
+            Application.targetFrameRate = originalTargetFrameRate;
+            Time.fixedDeltaTime = originalFixedDeltaTime;
+            Time.maximumDeltaTime = originalMaximumDeltaTime;
+            runtimeSettingsApplied = false;
+        }
+
+        private void RestoreSceneCameraMasks()
+        {
+            if (maskedSceneCameras == null || originalSceneCameraMasks == null)
+            {
+                return;
+            }
+
+            var count = Mathf.Min(maskedSceneCameras.Length, originalSceneCameraMasks.Length);
+            var diceLayerMask = 1 << DiceStageLayer;
+            for (var index = 0; index < count; index++)
+            {
+                if (maskedSceneCameras[index] != null)
+                {
+                    var currentMask = maskedSceneCameras[index].cullingMask;
+                    var originalDiceLayerBit = originalSceneCameraMasks[index] & diceLayerMask;
+                    maskedSceneCameras[index].cullingMask = (currentMask & ~diceLayerMask) | originalDiceLayerBit;
+                }
+            }
+
+            maskedSceneCameras = null;
+            originalSceneCameraMasks = null;
         }
 
         private static void DestroyStageMaterial(Material material)
@@ -3751,6 +4938,233 @@ namespace Tikatooka
             return Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
         }
 
+        private void LoadGeneratedArt()
+        {
+            boardPatternTexture = Resources.Load<Texture2D>("Art/TikatookaFeltV2") ?? Resources.Load<Texture2D>("Art/TikatookaBoardPattern");
+            diceCeramicTexture = Resources.Load<Texture2D>("Art/TikatookaDiceCeramicV2") ?? Resources.Load<Texture2D>("Art/TikatookaDiceCeramic");
+            panelParchmentTexture = Resources.Load<Texture2D>("Art/TikatookaPanelParchment");
+            mainBoardBackdropTexture = Resources.Load<Texture2D>("Art/TikatookaMainBoardBackdropV2");
+            scoreTowerTexture = Resources.Load<Texture2D>("Art/TikatookaScoreTowerV1");
+            controlPlaqueTexture = Resources.Load<Texture2D>("Art/TikatookaControlPlaqueV1");
+            buttonPrimaryTexture = Resources.Load<Texture2D>("Art/TikatookaButtonPrimaryV1");
+            buttonSecondaryTexture = Resources.Load<Texture2D>("Art/TikatookaButtonSecondaryV1");
+            buttonPvpTexture = Resources.Load<Texture2D>("Art/TikatookaButtonPvpV1");
+            buttonPveTexture = Resources.Load<Texture2D>("Art/TikatookaButtonPveV1");
+            cellPlateTexture = Resources.Load<Texture2D>("Art/TikatookaCellPlateV1");
+            scoreMedallionTexture = Resources.Load<Texture2D>("Art/TikatookaScoreMedallionV1");
+            diceFaceArtTexture = Resources.Load<Texture2D>("Art/TikatookaDiceFaceV3");
+            worldDieSurfaceTexture = Resources.Load<Texture2D>("Art/TikatookaDicePorcelainSurfaceV3");
+            walnutTableTexture = Resources.Load<Texture2D>("Art/TikatookaWalnutTable");
+            cupLeatherTexture = Resources.Load<Texture2D>("Art/TikatookaCupLeather");
+
+            if (boardPatternTexture != null)
+            {
+                boardPatternSprite = CreateSpriteFromTexture(boardPatternTexture, "Tikatooka Felt Sprite", 256f);
+            }
+
+            if (diceCeramicTexture != null)
+            {
+                diceCeramicSprite = CreateSpriteFromTexture(diceCeramicTexture, "Tikatooka Dice Ceramic V2 Sprite", 256f);
+            }
+
+            if (panelParchmentTexture != null)
+            {
+                panelParchmentSprite = CreateSpriteFromTexture(panelParchmentTexture, "Tikatooka Panel Parchment Sprite", 256f);
+            }
+
+            if (mainBoardBackdropTexture != null)
+            {
+                mainBoardBackdropSprite = CreateSpriteFromTexture(mainBoardBackdropTexture, "Tikatooka Main Board Backdrop V2 Sprite", 100f);
+            }
+
+            if (scoreTowerTexture != null)
+            {
+                scoreTowerSprite = CreateSpriteFromTexture(scoreTowerTexture, "Tikatooka Score Tower V1 Sprite", 100f);
+            }
+
+            if (controlPlaqueTexture != null)
+            {
+                controlPlaqueSprite = CreateSlicedSpriteFromTexture(
+                    controlPlaqueTexture,
+                    "Tikatooka Control Plaque V1 Sprite",
+                    100f,
+                    0.16f,
+                    0.28f);
+            }
+
+            if (buttonPrimaryTexture != null)
+            {
+                buttonPrimarySprite = CreateSlicedSpriteFromTexture(
+                    buttonPrimaryTexture,
+                    "Tikatooka Primary Button V1 Sprite",
+                    100f,
+                    0.16f,
+                    0.24f);
+            }
+
+            if (buttonSecondaryTexture != null)
+            {
+                buttonSecondarySprite = CreateSlicedSpriteFromTexture(
+                    buttonSecondaryTexture,
+                    "Tikatooka Secondary Button V1 Sprite",
+                    100f,
+                    0.16f,
+                    0.24f);
+            }
+
+            if (buttonPvpTexture != null)
+            {
+                buttonPvpSprite = CreateSlicedSpriteFromTexture(
+                    buttonPvpTexture,
+                    "Tikatooka PVP Button V1 Sprite",
+                    100f,
+                    0.16f,
+                    0.24f);
+            }
+
+            if (buttonPveTexture != null)
+            {
+                buttonPveSprite = CreateSlicedSpriteFromTexture(
+                    buttonPveTexture,
+                    "Tikatooka PVE Button V1 Sprite",
+                    100f,
+                    0.16f,
+                    0.24f);
+            }
+
+            if (cellPlateTexture != null)
+            {
+                cellPlateSprite = CreateSpriteFromTexture(
+                    cellPlateTexture,
+                    "Tikatooka Cell Plate V1 Sprite",
+                    100f,
+                    new Rect(0.122f, 0.128f, 0.754f, 0.762f));
+            }
+
+            if (scoreMedallionTexture != null)
+            {
+                scoreMedallionSprite = CreateSpriteFromTexture(
+                    scoreMedallionTexture,
+                    "Tikatooka Score Medallion V1 Sprite",
+                    100f,
+                    new Rect(0.164f, 0.186f, 0.671f, 0.679f));
+            }
+
+            if (diceFaceArtTexture != null)
+            {
+                diceFaceArtSprite = CreateSpriteFromTexture(
+                    diceFaceArtTexture,
+                    "Tikatooka Dice Face V3 Sprite",
+                    100f,
+                    new Rect(0.079f, 0.076f, 0.84f, 0.847f));
+            }
+        }
+
+        private static Sprite CreateSpriteFromTexture(Texture2D texture, string spriteName, float pixelsPerUnit)
+        {
+            return CreateSpriteFromTexture(texture, spriteName, pixelsPerUnit, new Rect(0f, 0f, 1f, 1f));
+        }
+
+        private static Sprite CreateSpriteFromTexture(Texture2D texture, string spriteName, float pixelsPerUnit, Rect normalizedRect)
+        {
+            if (texture == null)
+            {
+                return null;
+            }
+
+            var textureRect = new Rect(
+                texture.width * normalizedRect.x,
+                texture.height * normalizedRect.y,
+                texture.width * normalizedRect.width,
+                texture.height * normalizedRect.height);
+
+            var sprite = Sprite.Create(
+                texture,
+                textureRect,
+                new Vector2(0.5f, 0.5f),
+                pixelsPerUnit,
+                0,
+                SpriteMeshType.FullRect);
+            sprite.name = spriteName;
+            return sprite;
+        }
+
+        private static Sprite CreateSlicedSpriteFromTexture(
+            Texture2D texture,
+            string spriteName,
+            float pixelsPerUnit,
+            float horizontalBorderRatio,
+            float verticalBorderRatio)
+        {
+            if (texture == null)
+            {
+                return null;
+            }
+
+            var textureRect = new Rect(0f, 0f, texture.width, texture.height);
+            var border = new Vector4(
+                texture.width * horizontalBorderRatio,
+                texture.height * verticalBorderRatio,
+                texture.width * horizontalBorderRatio,
+                texture.height * verticalBorderRatio);
+            var sprite = Sprite.Create(
+                texture,
+                textureRect,
+                new Vector2(0.5f, 0.5f),
+                pixelsPerUnit,
+                0,
+                SpriteMeshType.FullRect,
+                border);
+            sprite.name = spriteName;
+            return sprite;
+        }
+
+        private void CreateBoardPatternOverlay(Transform parent, float alpha)
+        {
+            var overlaySprite = panelParchmentSprite != null ? panelParchmentSprite : boardPatternSprite;
+            if (overlaySprite == null)
+            {
+                return;
+            }
+
+            var overlay = CreateUiObject("Generated Parchment Overlay", parent);
+            var overlayLayout = overlay.AddComponent<LayoutElement>();
+            overlayLayout.ignoreLayout = true;
+            var overlayImage = overlay.AddComponent<Image>();
+            overlayImage.sprite = overlaySprite;
+            overlayImage.type = Image.Type.Tiled;
+            overlayImage.color = new Color(1f, 1f, 1f, alpha);
+            overlayImage.raycastTarget = false;
+
+            var overlayRect = overlay.GetComponent<RectTransform>();
+            overlayRect.anchorMin = Vector2.zero;
+            overlayRect.anchorMax = Vector2.one;
+            overlayRect.offsetMin = Vector2.zero;
+            overlayRect.offsetMax = Vector2.zero;
+            overlay.transform.SetAsFirstSibling();
+        }
+
+        private void CreateDiceCeramicInlay(Transform parent, float inset, float alpha)
+        {
+            if (diceCeramicSprite == null)
+            {
+                return;
+            }
+
+            var inlay = CreateUiObject("Generated Ceramic Inlay", parent);
+            var inlayImage = inlay.AddComponent<Image>();
+            inlayImage.sprite = diceCeramicSprite;
+            inlayImage.color = new Color(1f, 1f, 1f, alpha);
+            inlayImage.raycastTarget = false;
+
+            var inlayRect = inlay.GetComponent<RectTransform>();
+            inlayRect.anchorMin = new Vector2(inset, inset);
+            inlayRect.anchorMax = new Vector2(1f - inset, 1f - inset);
+            inlayRect.offsetMin = Vector2.zero;
+            inlayRect.offsetMax = Vector2.zero;
+            inlay.transform.SetAsFirstSibling();
+        }
+
         private static Sprite CreateRoundedRectSprite(int size, int radius)
         {
             var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
@@ -3804,12 +5218,24 @@ namespace Tikatooka
             layout.flexibleHeight = flexibleHeight;
         }
 
-        private static void EnsureEventSystem()
+        private void EnsureEventSystem()
         {
-            var eventSystem = FindFirstObjectByType<EventSystem>();
+            EventSystem eventSystem = null;
+            var eventSystems = FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (var index = 0; index < eventSystems.Length; index++)
+            {
+                var candidate = eventSystems[index];
+                if (candidate != null && candidate.gameObject.scene == gameObject.scene)
+                {
+                    eventSystem = candidate;
+                    break;
+                }
+            }
+
             if (eventSystem == null)
             {
                 var eventSystemObject = new GameObject("EventSystem");
+                eventSystemObject.transform.SetParent(transform, false);
                 eventSystem = eventSystemObject.AddComponent<EventSystem>();
             }
 
@@ -3852,7 +5278,9 @@ namespace Tikatooka
 
             private void NotifyIfFloorContact(Collision collision)
             {
-                if (controller == null || controller.IsDiceCupCollider(collision.collider))
+                if (controller == null
+                    || controller.worldDieHasTouchedSurface
+                    || controller.IsDiceCupCollider(collision.collider))
                 {
                     return;
                 }
@@ -3868,13 +5296,18 @@ namespace Tikatooka
             }
         }
 
-        private sealed class DiceCupDragSurface : MonoBehaviour, IPointerDownHandler, IDragHandler, IEndDragHandler, IPointerUpHandler
+        private sealed class DiceCupDragSurface : MonoBehaviour, IInitializePotentialDragHandler, IPointerDownHandler, IDragHandler, IEndDragHandler, IPointerUpHandler, ISubmitHandler, ICancelHandler
         {
             private DiceBoardGameController controller;
 
             public void Initialize(DiceBoardGameController owner)
             {
                 controller = owner;
+            }
+
+            public void OnInitializePotentialDrag(PointerEventData eventData)
+            {
+                eventData.useDragThreshold = false;
             }
 
             public void OnPointerDown(PointerEventData eventData)
@@ -3895,6 +5328,16 @@ namespace Tikatooka
             public void OnEndDrag(PointerEventData eventData)
             {
                 controller?.EndCupShake();
+            }
+
+            public void OnSubmit(BaseEventData eventData)
+            {
+                controller?.EndCupShake();
+            }
+
+            public void OnCancel(BaseEventData eventData)
+            {
+                controller?.CancelCupShake();
             }
         }
 
