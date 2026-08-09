@@ -34,7 +34,7 @@ namespace Tikatooka.Editor
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             Create2DCamera();
 
-            var controllerObject = new GameObject("Dice Board Game");
+            var controllerObject = new GameObject("Dice Dominion Game");
             controllerObject.AddComponent<DiceBoardGameController>();
 
             EnsureBootCover.CreateOrUpdate(scene);
@@ -47,7 +47,7 @@ namespace Tikatooka.Editor
                 .ToArray();
 
             PlayerSettings.companyName = "Tikatooka";
-            PlayerSettings.productName = "Tikatooka Dice Board";
+            PlayerSettings.productName = "Dice Dominion";
             PlayerSettings.defaultScreenWidth = 1600;
             PlayerSettings.defaultScreenHeight = 900;
 

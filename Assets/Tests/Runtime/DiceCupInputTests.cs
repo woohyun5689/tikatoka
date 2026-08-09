@@ -10,6 +10,57 @@ namespace Tikatooka.PlayModeTests
     public sealed class DiceCupInputTests
     {
         [UnityTest]
+        public IEnumerator SectionScoreRowsAlignWithBoardRows()
+        {
+            var controller = Object.FindFirstObjectByType<DiceBoardGameController>();
+            if (controller == null)
+            {
+                controller = new GameObject("Dice Board Game Score Alignment Test Controller")
+                    .AddComponent<DiceBoardGameController>();
+            }
+
+            yield return null;
+
+            var titleStartButton = GameObject.Find("Title Start Button")?.GetComponent<Button>();
+            Assert.That(titleStartButton, Is.Not.Null, "The title start button was not created.");
+            titleStartButton.onClick.Invoke();
+            yield return null;
+
+            var pveButton = GameObject.Find("PVE Mode Button")?.GetComponent<Button>();
+            Assert.That(pveButton, Is.Not.Null, "The PVE mode button was not created.");
+            pveButton.onClick.Invoke();
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+
+            var scorePanel = GameObject.Find("Section Score Comparison")?.GetComponent<RectTransform>();
+            var playerPanel = GameObject.Find("Player 1 Panel")?.transform;
+            var playerPanelRect = playerPanel?.GetComponent<RectTransform>();
+            var grid = playerPanel?.Find("Grid With Section Labels/Grid")?.GetComponent<RectTransform>();
+            Assert.That(scorePanel, Is.Not.Null, "The section score panel was not created.");
+            Assert.That(playerPanelRect, Is.Not.Null, "The player panel was not created.");
+            Assert.That(grid, Is.Not.Null, "The player grid was not created.");
+
+            for (var section = 0; section < 5; section++)
+            {
+                var scoreRow = scorePanel.Find($"Section {section + 1}")?.GetComponent<RectTransform>();
+                var boardCell = grid.Find($"Cell {section},0")?.GetComponent<RectTransform>();
+                Assert.That(scoreRow, Is.Not.Null, $"Score row {section + 1} is missing.");
+                Assert.That(boardCell, Is.Not.Null, $"Board row {section + 1} is missing.");
+
+                var scoreCenter = scoreRow.TransformPoint(scoreRow.rect.center);
+                var boardCenter = boardCell.TransformPoint(boardCell.rect.center);
+                Assert.That(
+                    Mathf.Abs(scoreCenter.y - boardCenter.y),
+                    Is.LessThan(0.1f),
+                    $"Score row {section + 1} does not align with the matching board row. "
+                    + $"Score Y: {scoreCenter.y:F2}; board Y: {boardCenter.y:F2}.");
+            }
+
+            Object.Destroy(controller.gameObject);
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator PointerDragMovesTheDiceCup()
         {
             var controller = Object.FindFirstObjectByType<DiceBoardGameController>();
@@ -19,6 +70,16 @@ namespace Tikatooka.PlayModeTests
                     .AddComponent<DiceBoardGameController>();
             }
 
+            yield return null;
+
+            var titleScreen = GameObject.Find("Title Screen Overlay");
+            Assert.That(titleScreen, Is.Not.Null, "The title screen was not created.");
+            Assert.That(titleScreen.activeInHierarchy, Is.True, "The title screen should be the initial front screen.");
+            Assert.That(GameObject.Find("Roll Button"), Is.Null, "The board controls should stay hidden until title start.");
+
+            var titleStartButton = GameObject.Find("Title Start Button")?.GetComponent<Button>();
+            Assert.That(titleStartButton, Is.Not.Null, "The title start button was not created.");
+            titleStartButton.onClick.Invoke();
             yield return null;
 
             var pveButton = GameObject.Find("PVE Mode Button")?.GetComponent<Button>();

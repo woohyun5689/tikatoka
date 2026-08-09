@@ -25,7 +25,7 @@ namespace Tikatooka
             Pve
         }
 
-        private static readonly Vector3 CupHomePosition = new Vector3(0.72f, 0.45f, 0.12f);
+        private static readonly Vector3 CupHomePosition = new Vector3(1.10f, 0.45f, 0.30f);
         private static readonly Vector3 DieInCupOffset = new Vector3(-0.06f, -0.17f, 0.02f);
         private static readonly Vector3 CupReleasePosition = new Vector3(0.88f, 0.68f, 0.2f);
         private static readonly Vector3 DieResultPosition = new Vector3(-0.42f, 0.25f, 0.05f);
@@ -63,25 +63,28 @@ namespace Tikatooka
         private static readonly Color ScorePanelColor = new Color32(219, 224, 220, 255);
         private static readonly Color ScoreNeutralColor = new Color32(83, 90, 96, 255);
         private static readonly Color ScoreTextColor = new Color32(244, 247, 242, 255);
-        private static readonly Color EmptyCellColor = new Color32(230, 233, 232, 255);
-        private static readonly Color FrontEmptyCellColor = new Color32(222, 229, 232, 255);
+        private static readonly Color EmptyCellColor = new Color32(218, 211, 195, 255);
+        private static readonly Color FrontEmptyCellColor = new Color32(213, 205, 188, 255);
         private static readonly Color ActiveEmptyCellColor = new Color32(204, 238, 232, 255);
         private static readonly Color AttackTargetCellColor = new Color32(236, 92, 78, 255);
         private static readonly Color ButtonColor = new Color32(239, 127, 64, 255);
         private static readonly Color DisabledButtonColor = new Color32(192, 195, 190, 255);
         private static readonly Color ArtDecoCream = new Color32(247, 236, 206, 255);
         private static readonly Color ArtDecoMutedGold = new Color32(198, 181, 133, 255);
+        private static readonly Color HudCardLabelColor = new Color32(235, 209, 150, 255);
+        private static readonly Color HudInkColor = new Color32(56, 40, 29, 255);
+        private static readonly Color HudScoreColor = new Color32(28, 61, 50, 255);
 
         private static readonly Color[] PlayerAccentColors =
         {
-            new Color32(205, 74, 68, 255),
-            new Color32(60, 126, 199, 255)
+            new Color32(184, 100, 88, 255),
+            new Color32(85, 127, 161, 255)
         };
 
         private static readonly Color[] PlayerLabelColors =
         {
-            new Color32(170, 57, 52, 255),
-            new Color32(40, 100, 166, 255)
+            new Color32(151, 82, 72, 255),
+            new Color32(67, 105, 135, 255)
         };
 
         private static readonly Color[] DieColors =
@@ -101,6 +104,7 @@ namespace Tikatooka
         private readonly Text[] sectionResultTexts = new Text[BoardSize];
 
         private Font defaultFont;
+        private TikatookaGameAudio gameAudio;
         private bool ownsDefaultFont;
         private Sprite scoreBadgeSprite;
         private Sprite diceFaceSprite;
@@ -108,9 +112,21 @@ namespace Tikatooka
         private Sprite boardPatternSprite;
         private Sprite diceCeramicSprite;
         private Sprite panelParchmentSprite;
+        private Sprite playerBoardPanelSprite;
+        private Sprite playerOnePlaymatSprite;
+        private Sprite playerTwoPlaymatSprite;
+        private Sprite gameplayTableauSprite;
+        private Sprite playerHeaderSprite;
+        private Sprite playerStatusHeaderSprite;
+        private Sprite playerProgressRailSprite;
+        private Sprite scoreHeaderSprite;
         private Sprite mainBoardBackdropSprite;
         private Sprite scoreTowerSprite;
         private Sprite controlPlaqueSprite;
+        private Sprite turnStatusPlaqueSprite;
+        private Sprite gameplayActionTraySprite;
+        private Sprite matchScoreHudSprite;
+        private Sprite drawnDieHudSprite;
         private Sprite buttonPrimarySprite;
         private Sprite buttonSecondarySprite;
         private Sprite buttonPvpSprite;
@@ -118,12 +134,26 @@ namespace Tikatooka
         private Sprite cellPlateSprite;
         private Sprite scoreMedallionSprite;
         private Sprite diceFaceArtSprite;
+        private Sprite titleBackdropSprite;
+        private Sprite titleCrestSprite;
         private Texture2D boardPatternTexture;
         private Texture2D diceCeramicTexture;
         private Texture2D panelParchmentTexture;
+        private Texture2D playerBoardPanelTexture;
+        private Texture2D playerOnePlaymatTexture;
+        private Texture2D playerTwoPlaymatTexture;
+        private Texture2D gameplayTableauTexture;
+        private Texture2D playerHeaderTexture;
+        private Texture2D playerStatusHeaderTexture;
+        private Texture2D playerProgressRailTexture;
+        private Texture2D scoreHeaderTexture;
         private Texture2D mainBoardBackdropTexture;
         private Texture2D scoreTowerTexture;
         private Texture2D controlPlaqueTexture;
+        private Texture2D turnStatusPlaqueTexture;
+        private Texture2D gameplayActionTrayTexture;
+        private Texture2D matchScoreHudTexture;
+        private Texture2D drawnDieHudTexture;
         private Texture2D buttonPrimaryTexture;
         private Texture2D buttonSecondaryTexture;
         private Texture2D buttonPvpTexture;
@@ -134,6 +164,8 @@ namespace Tikatooka
         private Texture2D worldDieSurfaceTexture;
         private Texture2D walnutTableTexture;
         private Texture2D cupLeatherTexture;
+        private Texture2D titleBackdropTexture;
+        private Texture2D titleCrestTexture;
         private Image headerImage;
         private Text statusText;
         private Image matchScoreImage;
@@ -151,6 +183,8 @@ namespace Tikatooka
         private Text resultTitleText;
         private Text resultDetailText;
         private GameObject modeSelectionOverlay;
+        private GameObject titleScreenOverlay;
+        private GameObject titleHowToPlayOverlay;
         private GameObject diceOverlay;
         private GameObject boardUiRoot;
         private RawImage diceOutputImage;
@@ -158,6 +192,17 @@ namespace Tikatooka
         private RenderTexture diceRenderTexture;
         private Camera diceCamera;
         private Transform diceStageRoot;
+
+        // GameObject.CreatePrimitive adds these at runtime. Keep explicit type
+        // references so WebGL engine-code stripping retains the components.
+#pragma warning disable CS0169
+        private MeshFilter primitiveMeshFilterReference;
+        private MeshRenderer primitiveMeshRendererReference;
+        private BoxCollider primitiveBoxColliderReference;
+        private SphereCollider primitiveSphereColliderReference;
+        private CapsuleCollider primitiveCapsuleColliderReference;
+#pragma warning restore CS0169
+
         private Transform diceCupTransform;
         private Rigidbody diceCupBody;
         private Transform worldDieTransform;
@@ -168,6 +213,10 @@ namespace Tikatooka
         private Mesh cupOuterMesh;
         private Mesh cupInnerMesh;
         private Mesh cupRimMesh;
+        private Mesh cupRimInnerInlayMesh;
+        private Mesh cupRimOuterInlayMesh;
+        private Mesh cupUpperBandMesh;
+        private Mesh cupLowerBandMesh;
         private Material cupMaterial;
         private Material cupInnerMaterial;
         private Material dieMaterial;
@@ -182,6 +231,9 @@ namespace Tikatooka
         private Button modeButton;
         private Button pvpModeButton;
         private Button pveModeButton;
+        private Button titleStartButton;
+        private Button titleHowToPlayButton;
+        private Button titleHowToCloseButton;
         private Button resultResetButton;
         private GameObject bootCover;
         private Coroutine bootCoverRoutine;
@@ -237,7 +289,7 @@ namespace Tikatooka
                 return;
             }
 
-            var controllerObject = new GameObject("Dice Board Game");
+            var controllerObject = new GameObject("Dice Dominion Game");
             controllerObject.AddComponent<DiceBoardGameController>();
         }
 
@@ -252,6 +304,13 @@ namespace Tikatooka
             Application.targetFrameRate = -1;
             Time.fixedDeltaTime = 1f / 60f;
             Time.maximumDeltaTime = 0.05f;
+            gameAudio = GetComponent<TikatookaGameAudio>();
+            if (gameAudio == null)
+            {
+                gameAudio = gameObject.AddComponent<TikatookaGameAudio>();
+            }
+
+            gameAudio.Initialize();
             bootCover = FindBootCoverInScene();
             PrepareBootCover();
             defaultFont = LoadInterfaceFont(out ownsDefaultFont);
@@ -261,7 +320,7 @@ namespace Tikatooka
             LoadGeneratedArt();
             BuildInterface();
             StartNewGame();
-            ShowModeSelection();
+            ShowTitleScreen();
             Canvas.ForceUpdateCanvases();
             bootCoverRoutine = StartCoroutine(HideBootCoverRoutine());
         }
@@ -386,11 +445,12 @@ namespace Tikatooka
 
             bootCoverInputBlocked = false;
             bootCoverRoutine = null;
-            FocusModeSelection();
+            FocusActiveFrontScreen();
         }
 
         private void StopGameplayCoroutines()
         {
+            gameAudio?.StopCupShake();
             var finishBootCover = bootCoverRoutine != null;
             StopAllCoroutines();
             bootCoverRoutine = null;
@@ -417,7 +477,7 @@ namespace Tikatooka
 
             bootCover.SetActive(false);
             bootCoverInputBlocked = false;
-            FocusModeSelection();
+            FocusActiveFrontScreen();
         }
 
         private void FixedUpdate()
@@ -476,6 +536,16 @@ namespace Tikatooka
 
         private void Update()
         {
+            if (titleHowToPlayOverlay != null && titleHowToPlayOverlay.activeInHierarchy)
+            {
+                if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+                {
+                    CloseTitleHowToPlay();
+                }
+
+                return;
+            }
+
             if (!isRolling || !isWaitingForCupShake || cupReleaseStarted || IsAiTurnActive())
             {
                 return;
@@ -576,6 +646,15 @@ namespace Tikatooka
         private static Font LoadInterfaceFont(out bool ownsFont)
         {
             ownsFont = false;
+
+            // WebGL cannot use the player's operating-system fonts. Keep the Korean
+            // interface font in Resources so every platform receives the same glyphs.
+            var packagedFont = Resources.Load<Font>("Fonts/NotoSansKR");
+            if (packagedFont != null)
+            {
+                return packagedFont;
+            }
+
             var preferredFonts = new[]
             {
                 "Malgun Gothic",
@@ -688,6 +767,7 @@ namespace Tikatooka
             CreateAttackAnimationLayer(canvasObject.transform);
             CreateResultBanner(canvasObject.transform);
             CreateModeSelectionOverlay(canvasObject.transform);
+            CreateTitleScreen(canvasObject.transform);
             Canvas.ForceUpdateCanvases();
         }
 
@@ -720,9 +800,43 @@ namespace Tikatooka
             headerLayout.padding = new RectOffset(24, 24, 0, 0);
             AddLayout(header, -1, 72);
 
-            statusText = CreateText("Status", header.transform, "플레이어 1 차례", 28, FontStyle.Bold, TextAnchor.MiddleLeft);
-            statusText.color = controlPlaqueSprite != null ? ArtDecoCream : TextColor;
-            AddLayout(statusText.gameObject, -1, 72, flexibleWidth: 1);
+            var statusPlaque = CreateUiObject("Turn Status Plaque", header.transform);
+            var statusPlaqueImage = statusPlaque.AddComponent<Image>();
+            if (turnStatusPlaqueSprite != null)
+            {
+                statusPlaqueImage.sprite = turnStatusPlaqueSprite;
+                // This artwork was generated at the compact status-label proportion.
+                // Rendering it as one plaque avoids expanding the decorative end caps
+                // across the entire header.
+                statusPlaqueImage.type = Image.Type.Simple;
+                statusPlaqueImage.preserveAspect = false;
+                statusPlaqueImage.color = Color.white;
+            }
+            else
+            {
+                statusPlaqueImage.sprite = controlPlaqueSprite ?? diceFaceSprite;
+                statusPlaqueImage.type = controlPlaqueSprite != null ? Image.Type.Sliced : Image.Type.Simple;
+                statusPlaqueImage.color = Color.white;
+            }
+
+            statusPlaqueImage.raycastTarget = false;
+            var statusPlaqueShadow = statusPlaque.AddComponent<Shadow>();
+            statusPlaqueShadow.effectColor = new Color(0f, 0f, 0f, 0.28f);
+            statusPlaqueShadow.effectDistance = new Vector2(1.5f, -1.5f);
+            AddLayout(statusPlaque, 360, 64);
+
+            statusText = CreateText("Status", statusPlaque.transform, "플레이어 1 차례", 28, FontStyle.Bold, TextAnchor.MiddleLeft);
+            ApplyPlayerHeaderTypography(statusText, ArtDecoCream);
+            var statusRect = statusText.GetComponent<RectTransform>();
+            statusRect.anchorMin = Vector2.zero;
+            statusRect.anchorMax = Vector2.one;
+            statusRect.offsetMin = new Vector2(40f, 2f);
+            statusRect.offsetMax = new Vector2(-40f, -2f);
+
+            // Keep the generated status plaque compact at the left of the HUD while
+            // reserving the remaining header width for the two fixed HUD cards.
+            var statusSpacer = CreateUiObject("Header Status Spacer", header.transform);
+            AddLayout(statusSpacer, -1, 64, flexibleWidth: 1);
 
             CreateMatchScoreDisplay(header.transform);
             CreateDrawnDieDisplay(header.transform);
@@ -732,12 +846,25 @@ namespace Tikatooka
         {
             var display = CreateUiObject("Match Score Display", parent);
             matchScoreImage = display.AddComponent<Image>();
-            matchScoreImage.sprite = panelParchmentSprite != null ? panelParchmentSprite : diceFaceSprite;
-            if (panelParchmentSprite != null)
+            if (matchScoreHudSprite != null)
             {
-                matchScoreImage.type = Image.Type.Tiled;
+                matchScoreImage.sprite = matchScoreHudSprite;
+                // This card is exported at the final HUD aspect ratio, so keeping it
+                // simple preserves the generated Art Deco frame without 9-slice warping.
+                matchScoreImage.type = Image.Type.Simple;
+                matchScoreImage.preserveAspect = false;
+                matchScoreImage.color = Color.white;
             }
-            matchScoreImage.color = ScorePanelColor;
+            else
+            {
+                matchScoreImage.sprite = panelParchmentSprite != null ? panelParchmentSprite : diceFaceSprite;
+                if (panelParchmentSprite != null)
+                {
+                    matchScoreImage.type = Image.Type.Tiled;
+                }
+
+                matchScoreImage.color = ScorePanelColor;
+            }
             var scoreShadow = display.AddComponent<Shadow>();
             scoreShadow.effectColor = new Color(0f, 0f, 0f, 0.08f);
             scoreShadow.effectDistance = new Vector2(1.5f, -1.5f);
@@ -746,34 +873,60 @@ namespace Tikatooka
             scoreOutline.effectDistance = new Vector2(1f, -1f);
             AddLayout(display, 154, 72);
 
-            var displayLayout = display.AddComponent<VerticalLayoutGroup>();
-            displayLayout.padding = new RectOffset(8, 8, 6, 6);
-            displayLayout.spacing = 0;
-            displayLayout.childAlignment = TextAnchor.MiddleCenter;
-            displayLayout.childControlHeight = true;
-            displayLayout.childControlWidth = true;
-            displayLayout.childForceExpandHeight = false;
-            displayLayout.childForceExpandWidth = true;
+            var headerClip = CreateHudClipRegion(
+                "Match Score Header Clip",
+                display.transform,
+                new Vector2(0.18f, 0.62f),
+                new Vector2(0.82f, 0.92f));
+            matchScoreLabel = CreateText("Match Score Label", headerClip.transform, "구간 승리", 17, FontStyle.Bold, TextAnchor.MiddleCenter);
+            matchScoreLabel.color = matchScoreHudSprite != null ? HudCardLabelColor : HudInkColor;
+            matchScoreLabel.resizeTextForBestFit = false;
+            matchScoreLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+            matchScoreLabel.verticalOverflow = VerticalWrapMode.Overflow;
+            ApplyTextShadow(
+                matchScoreLabel,
+                matchScoreHudSprite != null ? new Color(0f, 0f, 0f, 0.64f) : new Color(1f, 1f, 1f, 0.42f),
+                new Vector2(1f, -1f));
+            StretchHudContent(matchScoreLabel.rectTransform, 2f, 1f);
 
-            matchScoreLabel = CreateText("Match Score Label", display.transform, "구간 승리", 17, FontStyle.Bold, TextAnchor.MiddleCenter);
-            matchScoreLabel.color = MutedTextColor;
-            AddLayout(matchScoreLabel.gameObject, -1, 22);
-
-            matchScoreText = CreateText("Match Score Value", display.transform, "0 : 0", 31, FontStyle.Bold, TextAnchor.MiddleCenter);
-            matchScoreText.color = TextColor;
-            AddLayout(matchScoreText.gameObject, -1, 38);
+            var valueClip = CreateHudClipRegion(
+                "Match Score Value Clip",
+                display.transform,
+                new Vector2(0.15f, 0.08f),
+                new Vector2(0.85f, 0.59f));
+            matchScoreText = CreateText("Match Score Value", valueClip.transform, "0 : 0", 31, FontStyle.Bold, TextAnchor.MiddleCenter);
+            matchScoreText.color = matchScoreHudSprite != null ? ArtDecoCream : HudScoreColor;
+            matchScoreText.resizeTextForBestFit = false;
+            matchScoreText.verticalOverflow = VerticalWrapMode.Overflow;
+            ApplyTextShadow(
+                matchScoreText,
+                matchScoreHudSprite != null ? new Color(0f, 0f, 0f, 0.72f) : new Color(1f, 1f, 1f, 0.38f),
+                new Vector2(1f, -1f));
+            StretchHudContent(matchScoreText.rectTransform, 2f, 1f);
         }
 
         private void CreateDrawnDieDisplay(Transform parent)
         {
             var display = CreateUiObject("Drawn Die Display", parent);
             drawnDieImage = display.AddComponent<Image>();
-            drawnDieImage.sprite = panelParchmentSprite != null ? panelParchmentSprite : diceFaceSprite;
-            if (panelParchmentSprite != null)
+            if (drawnDieHudSprite != null)
             {
-                drawnDieImage.type = Image.Type.Tiled;
+                drawnDieImage.sprite = drawnDieHudSprite;
+                // The die recess is part of the generated art and must remain square.
+                drawnDieImage.type = Image.Type.Simple;
+                drawnDieImage.preserveAspect = false;
+                drawnDieImage.color = Color.white;
             }
-            drawnDieImage.color = PanelColor;
+            else
+            {
+                drawnDieImage.sprite = panelParchmentSprite != null ? panelParchmentSprite : diceFaceSprite;
+                if (panelParchmentSprite != null)
+                {
+                    drawnDieImage.type = Image.Type.Tiled;
+                }
+
+                drawnDieImage.color = PanelColor;
+            }
             var displayShadow = display.AddComponent<Shadow>();
             displayShadow.effectColor = new Color(0f, 0f, 0f, 0.08f);
             displayShadow.effectDistance = new Vector2(1.5f, -1.5f);
@@ -782,24 +935,32 @@ namespace Tikatooka
             displayOutline.effectDistance = new Vector2(1f, -1f);
             AddLayout(display, 150, 72);
 
-            var displayLayout = display.AddComponent<VerticalLayoutGroup>();
-            displayLayout.padding = new RectOffset(8, 8, 5, 6);
-            displayLayout.spacing = 0;
-            displayLayout.childAlignment = TextAnchor.MiddleCenter;
-            displayLayout.childControlHeight = true;
-            displayLayout.childControlWidth = true;
-            displayLayout.childForceExpandHeight = false;
-            displayLayout.childForceExpandWidth = true;
+            var headerClip = CreateHudClipRegion(
+                "Drawn Die Header Clip",
+                display.transform,
+                new Vector2(0.18f, 0.62f),
+                new Vector2(0.82f, 0.92f));
+            drawnDieLabel = CreateText("Drawn Die Label", headerClip.transform, "주사위", 18, FontStyle.Bold, TextAnchor.MiddleCenter);
+            drawnDieLabel.color = drawnDieHudSprite != null ? HudCardLabelColor : HudInkColor;
+            drawnDieLabel.resizeTextForBestFit = false;
+            drawnDieLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+            drawnDieLabel.verticalOverflow = VerticalWrapMode.Overflow;
+            ApplyTextShadow(
+                drawnDieLabel,
+                drawnDieHudSprite != null ? new Color(0f, 0f, 0f, 0.64f) : new Color(1f, 1f, 1f, 0.42f),
+                new Vector2(1f, -1f));
+            StretchHudContent(drawnDieLabel.rectTransform, 2f, 1f);
 
-            drawnDieLabel = CreateText("Drawn Die Label", display.transform, "주사위", 18, FontStyle.Bold, TextAnchor.MiddleCenter);
-            drawnDieLabel.color = MutedTextColor;
-            AddLayout(drawnDieLabel.gameObject, -1, 22);
-
-            var faceObject = CreateUiObject("Drawn Die Face", display.transform);
+            var bodyClip = CreateHudClipRegion(
+                "Drawn Die Body Clip",
+                display.transform,
+                new Vector2(0.35f, 0.09f),
+                new Vector2(0.65f, 0.59f));
+            var faceObject = CreateUiObject("Drawn Die Face", bodyClip.transform);
             drawnDieFaceImage = faceObject.AddComponent<Image>();
             drawnDieFaceImage.sprite = diceFaceArtSprite != null ? diceFaceArtSprite : diceFaceSprite;
             drawnDieFaceImage.type = Image.Type.Simple;
-            drawnDieFaceImage.preserveAspect = false;
+            drawnDieFaceImage.preserveAspect = true;
             drawnDieFaceImage.color = GetDiceFaceArtTint(PanelColor);
             drawnDieFaceImage.raycastTarget = false;
             var faceShadow = faceObject.AddComponent<Shadow>();
@@ -808,7 +969,12 @@ namespace Tikatooka
             var faceOutline = faceObject.AddComponent<Outline>();
             faceOutline.effectColor = new Color(0f, 0f, 0f, 0.14f);
             faceOutline.effectDistance = new Vector2(1f, -1f);
-            AddLayout(faceObject, 46, 42);
+            var faceRect = faceObject.GetComponent<RectTransform>();
+            faceRect.anchorMin = new Vector2(0.5f, 0.5f);
+            faceRect.anchorMax = new Vector2(0.5f, 0.5f);
+            faceRect.pivot = new Vector2(0.5f, 0.5f);
+            faceRect.sizeDelta = new Vector2(30f, 30f);
+            faceRect.anchoredPosition = Vector2.zero;
 
             if (diceFaceArtSprite == null)
             {
@@ -817,7 +983,10 @@ namespace Tikatooka
             CreateDrawnDiePips(faceObject.transform);
 
             drawnDieText = CreateText("Drawn Die Value", faceObject.transform, "-", 30, FontStyle.Bold, TextAnchor.MiddleCenter);
-            drawnDieText.color = MutedTextColor;
+            drawnDieText.color = HudInkColor;
+            drawnDieText.resizeTextForBestFit = false;
+            drawnDieText.verticalOverflow = VerticalWrapMode.Overflow;
+            ApplyTextShadow(drawnDieText, new Color(1f, 1f, 1f, 0.34f), new Vector2(1f, -1f));
             var textRect = drawnDieText.GetComponent<RectTransform>();
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
@@ -830,12 +999,12 @@ namespace Tikatooka
             var positions = new[]
             {
                 Vector2.zero,
-                new Vector2(-11f, 11f),
-                new Vector2(11f, 11f),
-                new Vector2(-11f, 0f),
-                new Vector2(11f, 0f),
-                new Vector2(-11f, -11f),
-                new Vector2(11f, -11f)
+                new Vector2(-8.5f, 8.5f),
+                new Vector2(8.5f, 8.5f),
+                new Vector2(-8.5f, 0f),
+                new Vector2(8.5f, 0f),
+                new Vector2(-8.5f, -8.5f),
+                new Vector2(8.5f, -8.5f)
             };
 
             for (var index = 0; index < positions.Length; index++)
@@ -852,7 +1021,7 @@ namespace Tikatooka
                 var pipRect = pipObject.GetComponent<RectTransform>();
                 pipRect.anchorMin = new Vector2(0.5f, 0.5f);
                 pipRect.anchorMax = new Vector2(0.5f, 0.5f);
-                pipRect.sizeDelta = new Vector2(7.5f, 7.5f);
+                pipRect.sizeDelta = new Vector2(6.5f, 6.5f);
                 pipRect.anchoredPosition = positions[index];
                 pipObject.SetActive(false);
                 drawnDiePips[index] = pipImage;
@@ -933,8 +1102,17 @@ namespace Tikatooka
         {
             var hintPanel = CreateUiObject("Dice Shake Hint Panel", parent);
             var hintImage = hintPanel.AddComponent<Image>();
-            hintImage.sprite = diceFaceSprite;
-            hintImage.color = new Color(0.035f, 0.055f, 0.06f, 0.86f);
+            if (controlPlaqueSprite != null)
+            {
+                hintImage.sprite = controlPlaqueSprite;
+                hintImage.type = Image.Type.Sliced;
+                hintImage.color = Color.white;
+            }
+            else
+            {
+                hintImage.sprite = diceFaceSprite;
+                hintImage.color = new Color(0.035f, 0.055f, 0.06f, 0.86f);
+            }
             hintImage.raycastTarget = false;
 
             var hintRect = hintPanel.GetComponent<RectTransform>();
@@ -947,11 +1125,12 @@ namespace Tikatooka
             var hintText = CreateText(
                 "Dice Shake Hint",
                 hintPanel.transform,
-                "마우스로 컵을 흔든 뒤 놓으세요  ·  Enter/Space: 굴리기  ·  Esc: 취소",
+                "마우스로 컵을 흔든 뒤 놓으세요  •  Enter/Space: 컵 굴리기  •  Esc: 취소",
                 22,
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter);
-            hintText.color = Color.white;
+            hintText.color = controlPlaqueSprite != null ? ArtDecoCream : Color.white;
+            ApplyTextShadow(hintText, new Color32(28, 10, 7, 220), new Vector2(1f, -1f));
             hintText.raycastTarget = false;
             var hintTextRect = hintText.GetComponent<RectTransform>();
             hintTextRect.anchorMin = Vector2.zero;
@@ -1035,6 +1214,315 @@ namespace Tikatooka
             resultBanner.SetActive(false);
         }
 
+        private void CreateTitleScreen(Transform parent)
+        {
+            titleScreenOverlay = CreateUiObject("Title Screen Overlay", parent);
+            var overlayRect = titleScreenOverlay.GetComponent<RectTransform>();
+            overlayRect.anchorMin = Vector2.zero;
+            overlayRect.anchorMax = Vector2.one;
+            overlayRect.offsetMin = Vector2.zero;
+            overlayRect.offsetMax = Vector2.zero;
+            titleScreenOverlay.transform.SetAsLastSibling();
+
+            var backdrop = titleScreenOverlay.AddComponent<Image>();
+            if (titleBackdropSprite != null)
+            {
+                backdrop.sprite = titleBackdropSprite;
+                backdrop.type = Image.Type.Simple;
+                backdrop.preserveAspect = false;
+                backdrop.color = Color.white;
+            }
+            else if (mainBoardBackdropSprite != null)
+            {
+                backdrop.sprite = mainBoardBackdropSprite;
+                backdrop.type = Image.Type.Simple;
+                backdrop.preserveAspect = false;
+                backdrop.color = Color.white;
+            }
+            else
+            {
+                backdrop.color = new Color32(13, 39, 34, 255);
+            }
+            backdrop.raycastTarget = true;
+
+            var vignette = CreateUiObject("Title Center Vignette", titleScreenOverlay.transform);
+            var vignetteImage = vignette.AddComponent<Image>();
+            vignetteImage.color = new Color(0f, 0.035f, 0.022f, 0.2f);
+            vignetteImage.raycastTarget = false;
+            var vignetteRect = vignette.GetComponent<RectTransform>();
+            vignetteRect.anchorMin = new Vector2(0.18f, 0.08f);
+            vignetteRect.anchorMax = new Vector2(0.82f, 0.92f);
+            vignetteRect.offsetMin = Vector2.zero;
+            vignetteRect.offsetMax = Vector2.zero;
+
+            var crestObject = CreateUiObject("Title Crest", titleScreenOverlay.transform);
+            var crestImage = crestObject.AddComponent<Image>();
+            crestImage.sprite = titleCrestSprite ?? diceFaceArtSprite ?? diceFaceSprite;
+            crestImage.type = Image.Type.Simple;
+            crestImage.preserveAspect = true;
+            crestImage.color = Color.white;
+            crestImage.raycastTarget = false;
+            var crestShadow = crestObject.AddComponent<Shadow>();
+            crestShadow.effectColor = new Color(0f, 0f, 0f, 0.48f);
+            crestShadow.effectDistance = new Vector2(0f, -7f);
+            var crestRect = crestObject.GetComponent<RectTransform>();
+            crestRect.anchorMin = new Vector2(0.5f, 0.5f);
+            crestRect.anchorMax = new Vector2(0.5f, 0.5f);
+            crestRect.pivot = new Vector2(0.5f, 0.5f);
+            crestRect.sizeDelta = new Vector2(192f, 192f);
+            crestRect.anchoredPosition = new Vector2(0f, 218f);
+
+            var wordmark = CreateText("Title Logo Wordmark", titleScreenOverlay.transform, "DICE DOMINION", 96, FontStyle.Bold, TextAnchor.MiddleCenter);
+            wordmark.color = ArtDecoCream;
+            wordmark.resizeTextMinSize = 52;
+            wordmark.resizeTextMaxSize = 96;
+            wordmark.raycastTarget = false;
+            var wordmarkShadow = wordmark.gameObject.AddComponent<Shadow>();
+            wordmarkShadow.effectColor = new Color(0f, 0f, 0f, 0.68f);
+            wordmarkShadow.effectDistance = new Vector2(0f, -6f);
+            var wordmarkOutline = wordmark.gameObject.AddComponent<Outline>();
+            wordmarkOutline.effectColor = new Color(0.43f, 0.26f, 0.07f, 0.96f);
+            wordmarkOutline.effectDistance = new Vector2(2f, -2f);
+            var wordmarkRect = wordmark.GetComponent<RectTransform>();
+            wordmarkRect.anchorMin = new Vector2(0.5f, 0.5f);
+            wordmarkRect.anchorMax = new Vector2(0.5f, 0.5f);
+            wordmarkRect.pivot = new Vector2(0.5f, 0.5f);
+            wordmarkRect.sizeDelta = new Vector2(1040f, 112f);
+            wordmarkRect.anchoredPosition = new Vector2(0f, 82f);
+
+            var divider = CreateUiObject("Title Gold Divider", titleScreenOverlay.transform);
+            var dividerImage = divider.AddComponent<Image>();
+            dividerImage.color = ArtDecoMutedGold;
+            dividerImage.raycastTarget = false;
+            var dividerRect = divider.GetComponent<RectTransform>();
+            dividerRect.anchorMin = new Vector2(0.5f, 0.5f);
+            dividerRect.anchorMax = new Vector2(0.5f, 0.5f);
+            dividerRect.pivot = new Vector2(0.5f, 0.5f);
+            dividerRect.sizeDelta = new Vector2(270f, 3f);
+            dividerRect.anchoredPosition = new Vector2(0f, 21f);
+
+            var subtitle = CreateText("Title Subtitle", titleScreenOverlay.transform, "DICE BOARD GAME", 27, FontStyle.Bold, TextAnchor.MiddleCenter);
+            subtitle.color = ArtDecoMutedGold;
+            subtitle.resizeTextMinSize = 16;
+            subtitle.raycastTarget = false;
+            var subtitleRect = subtitle.GetComponent<RectTransform>();
+            subtitleRect.anchorMin = new Vector2(0.5f, 0.5f);
+            subtitleRect.anchorMax = new Vector2(0.5f, 0.5f);
+            subtitleRect.pivot = new Vector2(0.5f, 0.5f);
+            subtitleRect.sizeDelta = new Vector2(620f, 42f);
+            subtitleRect.anchoredPosition = new Vector2(0f, -17f);
+
+            titleStartButton = CreateButton("Title Start Button", titleScreenOverlay.transform, "게임 시작", 30);
+            ApplyGeneratedButtonSkin(titleStartButton, buttonPrimarySprite, new Color32(191, 123, 39, 255));
+            titleStartButton.onClick.AddListener(OpenModeSelectionFromTitle);
+            AddControlButtonDepth(titleStartButton.gameObject);
+            var startText = titleStartButton.GetComponentInChildren<Text>();
+            if (startText != null)
+            {
+                startText.color = ArtDecoCream;
+                ApplyTextShadow(startText, new Color32(24, 10, 8, 220), new Vector2(1f, -1f));
+            }
+            var startRect = titleStartButton.GetComponent<RectTransform>();
+            startRect.anchorMin = new Vector2(0.5f, 0.5f);
+            startRect.anchorMax = new Vector2(0.5f, 0.5f);
+            startRect.pivot = new Vector2(0.5f, 0.5f);
+            startRect.sizeDelta = new Vector2(320f, 78f);
+            startRect.anchoredPosition = new Vector2(0f, -138f);
+
+            titleHowToPlayButton = CreateButton("Title How To Play Button", titleScreenOverlay.transform, "게임 방법", 28);
+            ApplyGeneratedButtonSkin(titleHowToPlayButton, buttonPrimarySprite, new Color32(191, 123, 39, 255));
+            titleHowToPlayButton.onClick.AddListener(OpenTitleHowToPlay);
+            AddControlButtonDepth(titleHowToPlayButton.gameObject);
+            var howToPlayButtonText = titleHowToPlayButton.GetComponentInChildren<Text>();
+            if (howToPlayButtonText != null)
+            {
+                howToPlayButtonText.color = ArtDecoCream;
+                ApplyTextShadow(howToPlayButtonText, new Color32(24, 10, 8, 220), new Vector2(1f, -1f));
+            }
+
+            var howToPlayButtonRect = titleHowToPlayButton.GetComponent<RectTransform>();
+            howToPlayButtonRect.anchorMin = new Vector2(0.5f, 0.5f);
+            howToPlayButtonRect.anchorMax = new Vector2(0.5f, 0.5f);
+            howToPlayButtonRect.pivot = new Vector2(0.5f, 0.5f);
+            howToPlayButtonRect.sizeDelta = new Vector2(320f, 70f);
+            howToPlayButtonRect.anchoredPosition = new Vector2(0f, -228f);
+
+            var startHint = CreateText("Title Start Hint", titleScreenOverlay.transform, "Enter 또는 버튼을 눌러 시작", 18, FontStyle.Bold, TextAnchor.MiddleCenter);
+            startHint.color = new Color(0.88f, 0.81f, 0.62f, 0.9f);
+            startHint.resizeTextMinSize = 14;
+            startHint.raycastTarget = false;
+            var startHintRect = startHint.GetComponent<RectTransform>();
+            startHintRect.anchorMin = new Vector2(0.5f, 0.5f);
+            startHintRect.anchorMax = new Vector2(0.5f, 0.5f);
+            startHintRect.pivot = new Vector2(0.5f, 0.5f);
+            startHintRect.sizeDelta = new Vector2(460f, 32f);
+            startHintRect.anchoredPosition = new Vector2(0f, -294f);
+
+            CreateTitleHowToPlayOverlay(titleScreenOverlay.transform);
+
+            titleScreenOverlay.SetActive(false);
+        }
+
+        private void CreateTitleHowToPlayOverlay(Transform parent)
+        {
+            titleHowToPlayOverlay = CreateUiObject("Title How To Play Overlay", parent);
+            var overlayRect = titleHowToPlayOverlay.GetComponent<RectTransform>();
+            overlayRect.anchorMin = Vector2.zero;
+            overlayRect.anchorMax = Vector2.one;
+            overlayRect.offsetMin = Vector2.zero;
+            overlayRect.offsetMax = Vector2.zero;
+
+            var backdrop = titleHowToPlayOverlay.AddComponent<Image>();
+            backdrop.color = new Color(0f, 0.02f, 0.014f, 0.66f);
+            backdrop.raycastTarget = true;
+
+            var card = CreateUiObject("How To Play Card", titleHowToPlayOverlay.transform);
+            var cardImage = card.AddComponent<Image>();
+            if (controlPlaqueSprite != null)
+            {
+                cardImage.sprite = controlPlaqueSprite;
+                cardImage.type = Image.Type.Sliced;
+                cardImage.color = Color.white;
+            }
+            else
+            {
+                cardImage.sprite = diceFaceSprite;
+                cardImage.color = PanelColor;
+            }
+
+            var cardShadow = card.AddComponent<Shadow>();
+            cardShadow.effectColor = new Color(0f, 0f, 0f, 0.4f);
+            cardShadow.effectDistance = new Vector2(6f, -6f);
+            var cardOutline = card.AddComponent<Outline>();
+            cardOutline.effectColor = new Color(0f, 0f, 0f, 0.16f);
+            cardOutline.effectDistance = new Vector2(2f, -2f);
+
+            var cardRect = card.GetComponent<RectTransform>();
+            cardRect.anchorMin = new Vector2(0.5f, 0.5f);
+            cardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            cardRect.pivot = new Vector2(0.5f, 0.5f);
+            cardRect.sizeDelta = new Vector2(1180f, 600f);
+            cardRect.anchoredPosition = Vector2.zero;
+
+            var title = CreateText("How To Play Title", card.transform, "게임 방법", 38, FontStyle.Bold, TextAnchor.MiddleCenter);
+            title.color = ArtDecoCream;
+            ApplyTextShadow(title, new Color32(26, 9, 7, 225), new Vector2(1.5f, -1.5f));
+            var titleRect = title.GetComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0.5f, 0.5f);
+            titleRect.anchorMax = new Vector2(0.5f, 0.5f);
+            titleRect.pivot = new Vector2(0.5f, 0.5f);
+            titleRect.sizeDelta = new Vector2(780f, 52f);
+            titleRect.anchoredPosition = new Vector2(0f, 226f);
+
+            var subtitle = CreateText("How To Play Subtitle", card.transform, "주사위를 굴려 5개의 구간을 장악하세요.", 20, FontStyle.Bold, TextAnchor.MiddleCenter);
+            subtitle.color = ArtDecoMutedGold;
+            subtitle.raycastTarget = false;
+            var subtitleRect = subtitle.GetComponent<RectTransform>();
+            subtitleRect.anchorMin = new Vector2(0.5f, 0.5f);
+            subtitleRect.anchorMax = new Vector2(0.5f, 0.5f);
+            subtitleRect.pivot = new Vector2(0.5f, 0.5f);
+            subtitleRect.sizeDelta = new Vector2(820f, 34f);
+            subtitleRect.anchoredPosition = new Vector2(0f, 184f);
+
+            CreateTitleHowToPlaySection(
+                card.transform,
+                "How To Play Roll",
+                "① 컵 굴리기",
+                "「컵 굴리기」를 누른 뒤 컵을 끌어 흔들고, 놓아 주사위를 굴립니다.",
+                new Vector2(-248f, 72f));
+            CreateTitleHowToPlaySection(
+                card.transform,
+                "How To Play Place",
+                "② 주사위 배치",
+                "나온 눈은 빛나는 빈칸에 놓습니다. 같은 눈은 자동으로 붙어 정렬됩니다.",
+                new Vector2(248f, 72f));
+            CreateTitleHowToPlaySection(
+                card.transform,
+                "How To Play Attack",
+                "③ 같은 눈으로 공격",
+                "상대의 같은 눈을 클릭하면 연결된 같은 눈을 제거합니다. 성공하면 한 번 더 굴립니다.",
+                new Vector2(-248f, -58f));
+            CreateTitleHowToPlaySection(
+                card.transform,
+                "How To Play Score",
+                "④ 점수와 승리",
+                "같은 눈은 추가 점수! 5개 구간 중 더 많이 이기면 승리합니다.",
+                new Vector2(248f, -58f));
+
+            var tip = CreateText("How To Play Tip", card.transform, "빈칸은 배치 가능 · 검은 주사위는 공격 가능 대상", 18, FontStyle.Bold, TextAnchor.MiddleCenter);
+            tip.color = new Color32(225, 128, 57, 255);
+            ApplyTextShadow(tip, new Color32(26, 9, 7, 220), new Vector2(1f, -1f));
+            var tipRect = tip.GetComponent<RectTransform>();
+            tipRect.anchorMin = new Vector2(0.5f, 0.5f);
+            tipRect.anchorMax = new Vector2(0.5f, 0.5f);
+            tipRect.pivot = new Vector2(0.5f, 0.5f);
+            tipRect.sizeDelta = new Vector2(880f, 30f);
+            tipRect.anchoredPosition = new Vector2(0f, -179f);
+
+            titleHowToCloseButton = CreateButton("Title How To Play Close Button", card.transform, "닫기", 25);
+            ApplyGeneratedButtonSkin(titleHowToCloseButton, buttonPrimarySprite, new Color32(191, 123, 39, 255));
+            titleHowToCloseButton.onClick.AddListener(CloseTitleHowToPlay);
+            AddControlButtonDepth(titleHowToCloseButton.gameObject);
+            var closeText = titleHowToCloseButton.GetComponentInChildren<Text>();
+            if (closeText != null)
+            {
+                closeText.color = ArtDecoCream;
+                ApplyTextShadow(closeText, new Color32(24, 10, 8, 220), new Vector2(1f, -1f));
+            }
+
+            var closeRect = titleHowToCloseButton.GetComponent<RectTransform>();
+            closeRect.anchorMin = new Vector2(0.5f, 0.5f);
+            closeRect.anchorMax = new Vector2(0.5f, 0.5f);
+            closeRect.pivot = new Vector2(0.5f, 0.5f);
+            closeRect.sizeDelta = new Vector2(210f, 58f);
+            closeRect.anchoredPosition = new Vector2(0f, -238f);
+
+            titleHowToPlayOverlay.SetActive(false);
+        }
+
+        private void CreateTitleHowToPlaySection(
+            Transform parent,
+            string name,
+            string heading,
+            string detail,
+            Vector2 anchoredPosition)
+        {
+            var section = CreateUiObject(name, parent);
+            var sectionImage = section.AddComponent<Image>();
+            sectionImage.sprite = diceFaceSprite;
+            sectionImage.color = new Color(0.025f, 0.06f, 0.045f, 0.5f);
+            sectionImage.raycastTarget = false;
+            var sectionOutline = section.AddComponent<Outline>();
+            sectionOutline.effectColor = new Color(0.78f, 0.57f, 0.23f, 0.42f);
+            sectionOutline.effectDistance = new Vector2(1f, -1f);
+            var sectionRect = section.GetComponent<RectTransform>();
+            sectionRect.anchorMin = new Vector2(0.5f, 0.5f);
+            sectionRect.anchorMax = new Vector2(0.5f, 0.5f);
+            sectionRect.pivot = new Vector2(0.5f, 0.5f);
+            sectionRect.sizeDelta = new Vector2(470f, 108f);
+            sectionRect.anchoredPosition = anchoredPosition;
+
+            var headingText = CreateText("Heading", section.transform, heading, 22, FontStyle.Bold, TextAnchor.MiddleLeft);
+            headingText.color = ArtDecoCream;
+            ApplyTextShadow(headingText, new Color32(26, 9, 7, 220), new Vector2(1f, -1f));
+            var headingRect = headingText.GetComponent<RectTransform>();
+            headingRect.anchorMin = new Vector2(0f, 1f);
+            headingRect.anchorMax = new Vector2(1f, 1f);
+            headingRect.pivot = new Vector2(0.5f, 1f);
+            headingRect.offsetMin = new Vector2(18f, -38f);
+            headingRect.offsetMax = new Vector2(-18f, -8f);
+
+            var detailText = CreateText("Detail", section.transform, detail, 17, FontStyle.Normal, TextAnchor.UpperLeft);
+            detailText.color = new Color(0.94f, 0.88f, 0.74f, 0.96f);
+            detailText.resizeTextMinSize = 15;
+            detailText.raycastTarget = false;
+            var detailRect = detailText.GetComponent<RectTransform>();
+            detailRect.anchorMin = Vector2.zero;
+            detailRect.anchorMax = Vector2.one;
+            detailRect.offsetMin = new Vector2(18f, 10f);
+            detailRect.offsetMax = new Vector2(-18f, -42f);
+        }
+
         private void CreateModeSelectionOverlay(Transform parent)
         {
             modeSelectionOverlay = CreateUiObject("Mode Selection Overlay", parent);
@@ -1105,6 +1593,7 @@ namespace Tikatooka
 
             pvpModeButton = CreateButton("PVP Mode Button", buttons.transform, "PVP", 30);
             ApplyGeneratedButtonSkin(pvpModeButton, buttonPvpSprite, PlayerAccentColors[0]);
+            ApplyFixedAspectButtonArtwork(pvpModeButton);
             pvpModeButton.onClick.AddListener(() => SelectMatchMode(MatchMode.Pvp));
             AddControlButtonDepth(pvpModeButton.gameObject);
             var pvpText = pvpModeButton.GetComponentInChildren<Text>();
@@ -1117,6 +1606,7 @@ namespace Tikatooka
 
             pveModeButton = CreateButton("PVE Mode Button", buttons.transform, "PVE", 30);
             ApplyGeneratedButtonSkin(pveModeButton, buttonPveSprite, PlayerAccentColors[1]);
+            ApplyFixedAspectButtonArtwork(pveModeButton);
             pveModeButton.onClick.AddListener(() => SelectMatchMode(MatchMode.Pve));
             AddControlButtonDepth(pveModeButton.gameObject);
             var pveText = pveModeButton.GetComponentInChildren<Text>();
@@ -1159,26 +1649,32 @@ namespace Tikatooka
             diceStageRoot.SetParent(transform, false);
             diceStageRoot.position = Vector3.zero;
 
-            cupMaterial = CreateStageMaterial("Oxblood Leather Cup Material", new Color(0.78f, 0.65f, 0.62f, 1f), false);
-            cupInnerMaterial = CreateStageMaterial("Cup Inner Material", new Color32(66, 12, 10, 255), false);
+            // Keep the 3D interaction readable, but use the same warm walnut, emerald and brass
+            // palette as the board UI rather than letting the default lighting wash the props out.
+            cupMaterial = CreateStageMaterial("Oxblood Leather Cup Material", new Color32(188, 76, 52, 255), false);
+            cupInnerMaterial = CreateStageMaterial("Cup Inner Material", new Color32(68, 14, 13, 255), false);
             dieMaterial = CreateStageMaterial("Die Material", Color.white, false);
             pipMaterial = CreateStageMaterial("Pip Material", new Color(0.08f, 0.09f, 0.1f, 1f), false);
-            tableMaterial = CreateStageMaterial("Walnut Table Material", new Color(0.76f, 0.66f, 0.58f, 1f), false);
-            feltMaterial = CreateStageMaterial("Patterned Teal Felt Material", Color.white, false);
-            trayRimMaterial = CreateStageMaterial("Antique Brass Tray Rim Material", new Color(0.43f, 0.31f, 0.13f, 1f), false);
-            trayHighlightMaterial = CreateStageMaterial("Polished Brass Tray Highlight Material", new Color(0.82f, 0.65f, 0.28f, 1f), false);
+            tableMaterial = CreateStageMaterial("Walnut Table Material", new Color32(170, 93, 51, 255), false);
+            feltMaterial = CreateStageMaterial("Patterned Emerald Felt Material", new Color32(78, 130, 99, 255), false);
+            trayRimMaterial = CreateStageMaterial("Antique Brass Tray Rim Material", new Color32(86, 55, 18, 255), false);
+            trayHighlightMaterial = CreateStageMaterial("Polished Brass Tray Highlight Material", new Color32(235, 184, 72, 255), false);
             ApplyStageTexture(cupMaterial, cupLeatherTexture, new Vector2(1.4f, 1f), 0.28f);
+            ApplyStageTexture(cupInnerMaterial, cupLeatherTexture, new Vector2(1.1f, 1f), 0.16f);
             ApplyStageTexture(dieMaterial, worldDieSurfaceTexture != null ? worldDieSurfaceTexture : diceCeramicTexture, Vector2.one, 0.56f);
             ApplyStageTexture(tableMaterial, walnutTableTexture, new Vector2(2.5f, 2f), 0.38f);
             ApplyStageTexture(feltMaterial, boardPatternTexture, new Vector2(1.6f, 1.6f), 0.2f);
-            SetMaterialFinish(cupMaterial, 0f, 0.28f);
-            SetMaterialFinish(cupInnerMaterial, 0f, 0.22f);
+            SetMaterialFinish(cupMaterial, 0f, 0.34f);
+            SetMaterialFinish(cupInnerMaterial, 0f, 0.2f);
             SetMaterialFinish(dieMaterial, 0.02f, 0.56f);
             SetMaterialFinish(pipMaterial, 0.04f, 0.3f);
-            SetMaterialFinish(tableMaterial, 0f, 0.38f);
-            SetMaterialFinish(feltMaterial, 0f, 0.2f);
-            SetMaterialFinish(trayRimMaterial, 0.78f, 0.46f);
-            SetMaterialFinish(trayHighlightMaterial, 0.86f, 0.58f);
+            SetMaterialFinish(tableMaterial, 0f, 0.3f);
+            SetMaterialFinish(feltMaterial, 0f, 0.16f);
+            // A mostly-metallic Standard material has no useful environment reflection in this
+            // self-contained RenderTexture, so it turns muddy.  Low metallic values keep brass
+            // warm and legible under the stage lights.
+            SetMaterialFinish(trayRimMaterial, 0.08f, 0.4f);
+            SetMaterialFinish(trayHighlightMaterial, 0.16f, 0.46f);
 
             CreateStageCamera();
             CreateStageLights();
@@ -1236,23 +1732,109 @@ namespace Tikatooka
             boardsLayout.spacing = 16;
             boardsLayout.childControlHeight = true;
             boardsLayout.childControlWidth = true;
-            boardsLayout.childForceExpandHeight = true;
+            boardsLayout.childForceExpandHeight = false;
             boardsLayout.childForceExpandWidth = false;
             boardsLayout.childAlignment = TextAnchor.MiddleCenter;
             AddLayout(boardsRow, -1, 590, flexibleHeight: 1);
 
+            CreateGameplayTableau(boardsRow.transform);
             boards[0] = CreatePlayerBoard(boardsRow.transform, 0);
             CreateScoreComparison(boardsRow.transform);
             boards[1] = CreatePlayerBoard(boardsRow.transform, 1);
         }
 
+        private void CreateGameplayTableau(Transform parent)
+        {
+            if (gameplayTableauSprite == null)
+            {
+                return;
+            }
+
+            var tableau = CreateUiObject("Gameplay Tableau Background", parent);
+            var tableauLayout = tableau.AddComponent<LayoutElement>();
+            tableauLayout.ignoreLayout = true;
+            var tableauImage = tableau.AddComponent<Image>();
+            tableauImage.sprite = gameplayTableauSprite;
+            tableauImage.type = Image.Type.Simple;
+            tableauImage.preserveAspect = false;
+            tableauImage.color = Color.white;
+            tableauImage.raycastTarget = false;
+
+            var tableauRect = tableau.GetComponent<RectTransform>();
+            tableauRect.anchorMin = new Vector2(0.5f, 0.5f);
+            tableauRect.anchorMax = new Vector2(0.5f, 0.5f);
+            tableauRect.pivot = new Vector2(0.5f, 0.5f);
+            tableauRect.sizeDelta = new Vector2(1308f, 590f);
+            tableauRect.anchoredPosition = Vector2.zero;
+            tableau.transform.SetAsFirstSibling();
+        }
+
+        private static void ConfigureTableauRect(GameObject target, float x, float y, float width, float height)
+        {
+            var layout = target.GetComponent<LayoutElement>();
+            if (layout == null)
+            {
+                layout = target.AddComponent<LayoutElement>();
+            }
+
+            layout.ignoreLayout = true;
+            var rect = target.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.sizeDelta = new Vector2(width, height);
+            rect.anchoredPosition = new Vector2(x, -y);
+        }
+
+        private static Image CreateTableauArtwork(
+            string name,
+            Transform parent,
+            Sprite sprite,
+            float x,
+            float y,
+            float width,
+            float height)
+        {
+            var artwork = CreateUiObject(name, parent);
+            var image = artwork.AddComponent<Image>();
+            image.sprite = sprite;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = false;
+            image.color = Color.white;
+            image.raycastTarget = false;
+            ConfigureTableauRect(artwork, x, y, width, height);
+            artwork.transform.SetAsFirstSibling();
+            return image;
+        }
+
         private PlayerBoard CreatePlayerBoard(Transform parent, int playerIndex)
         {
             var board = new PlayerBoard(playerIndex, BoardSize);
+            var useGameplayTableau = gameplayTableauSprite != null;
+            var playmatSprite = useGameplayTableau
+                ? null
+                : playerIndex == 0 ? playerOnePlaymatSprite : playerTwoPlaymatSprite;
 
             var panel = CreateUiObject($"Player {playerIndex + 1} Panel", parent);
             board.PanelImage = panel.AddComponent<Image>();
-            if (panelParchmentSprite != null)
+            if (useGameplayTableau)
+            {
+                board.PanelImage.color = Color.clear;
+                board.PanelImage.raycastTarget = false;
+            }
+            else if (playmatSprite != null)
+            {
+                board.PanelImage.sprite = playmatSprite;
+                board.PanelImage.type = Image.Type.Simple;
+                board.PanelImage.color = Color.white;
+            }
+            else if (playerBoardPanelSprite != null)
+            {
+                board.PanelImage.sprite = playerBoardPanelSprite;
+                board.PanelImage.type = Image.Type.Simple;
+                board.PanelImage.color = Color.white;
+            }
+            else if (panelParchmentSprite != null)
             {
                 board.PanelImage.sprite = panelParchmentSprite;
                 board.PanelImage.type = Image.Type.Tiled;
@@ -1263,7 +1845,7 @@ namespace Tikatooka
                 board.PanelImage.color = PanelColor;
             }
             var panelShadow = panel.AddComponent<Shadow>();
-            panelShadow.effectColor = new Color(0f, 0f, 0f, 0.08f);
+            panelShadow.effectColor = useGameplayTableau ? Color.clear : new Color(0f, 0f, 0f, 0.08f);
             panelShadow.effectDistance = new Vector2(3f, -3f);
             board.PanelOutline = panel.AddComponent<Outline>();
             board.PanelOutline.effectColor = Color.clear;
@@ -1276,8 +1858,26 @@ namespace Tikatooka
             panelLayout.childControlWidth = true;
             panelLayout.childForceExpandHeight = false;
             panelLayout.childForceExpandWidth = true;
+            panelLayout.enabled = !useGameplayTableau;
             AddLayout(panel, 548, 590);
-            CreateBoardPatternOverlay(panel.transform, 0.12f);
+            if (!useGameplayTableau && playmatSprite == null && playerBoardPanelSprite == null)
+            {
+                CreateBoardPatternOverlay(panel.transform, 0.12f);
+            }
+
+            // This generated panel deliberately covers the progress rail baked into the
+            // original tableau.  Player labels stay live Unity text so Korean remains crisp.
+            if (useGameplayTableau && playerStatusHeaderSprite != null)
+            {
+                CreateTableauArtwork(
+                    "Player Status Header Art",
+                    panel.transform,
+                    playerStatusHeaderSprite,
+                    0f,
+                    0f,
+                    548f,
+                    114f);
+            }
 
             var titleRow = CreateUiObject("Title Row", panel.transform);
             var titleLayout = titleRow.AddComponent<HorizontalLayoutGroup>();
@@ -1288,16 +1888,30 @@ namespace Tikatooka
             titleLayout.childForceExpandHeight = true;
             titleLayout.childForceExpandWidth = false;
             AddLayout(titleRow, -1, 38);
+            if (useGameplayTableau)
+            {
+                ConfigureTableauRect(titleRow, 32f, 24f, 484f, 48f);
+            }
 
-            board.TitleText = CreateText("Title", titleRow.transform, $"플레이어 {playerIndex + 1}", 23, FontStyle.Bold, TextAnchor.MiddleLeft);
-            board.TitleText.color = PlayerAccentColors[playerIndex];
-            AddLayout(board.TitleText.gameObject, 260, 38, flexibleWidth: 1);
+            board.TitleText = CreateText("Title", titleRow.transform, $"플레이어 {playerIndex + 1}", 26, FontStyle.Bold, TextAnchor.MiddleLeft);
+            ApplyPlayerHeaderTypography(board.TitleText, ArtDecoCream);
+            AddLayout(board.TitleText.gameObject, 280, 48, flexibleWidth: 1);
 
-            board.ProgressText = CreateText("Progress", titleRow.transform, "0/25", 23, FontStyle.Bold, TextAnchor.MiddleRight);
-            board.ProgressText.color = PlayerAccentColors[playerIndex];
-            AddLayout(board.ProgressText.gameObject, 88, 38);
+            board.ProgressText = CreateText("Progress", titleRow.transform, "0 / 25", 25, FontStyle.Bold, TextAnchor.MiddleRight);
+            ApplyPlayerHeaderTypography(board.ProgressText, ArtDecoMutedGold);
+            AddLayout(board.ProgressText.gameObject, 112, 48);
 
             CreateBoardProgressBar(panel.transform, board, playerIndex);
+            if (useGameplayTableau)
+            {
+                ConfigureTableauRect(board.ProgressTrackImage.gameObject, 12f, 92f, 524f, 16f);
+                // The player total remains in the header text.  There is intentionally no
+                // separate progress rail, and the old baked rail is covered by the header art.
+                board.ProgressTrackImage.gameObject.SetActive(false);
+                var fillRect = board.ProgressFillImage.rectTransform;
+                fillRect.offsetMin = new Vector2(10f, 4f);
+                fillRect.offsetMax = new Vector2(-10f, -4f);
+            }
 
             var gridWrap = CreateUiObject("Grid With Section Labels", panel.transform);
             var gridWrapLayout = gridWrap.AddComponent<HorizontalLayoutGroup>();
@@ -1308,6 +1922,11 @@ namespace Tikatooka
             gridWrapLayout.childForceExpandHeight = false;
             gridWrapLayout.childForceExpandWidth = false;
             AddLayout(gridWrap, -1, 492);
+            if (useGameplayTableau)
+            {
+                gridWrapLayout.enabled = false;
+                ConfigureTableauRect(gridWrap, 0f, 0f, 548f, 590f);
+            }
 
             var labelStrip = CreateUiObject("Section Labels", gridWrap.transform);
             var labelLayout = labelStrip.AddComponent<VerticalLayoutGroup>();
@@ -1318,37 +1937,70 @@ namespace Tikatooka
             labelLayout.childForceExpandHeight = false;
             labelLayout.childForceExpandWidth = false;
             AddLayout(labelStrip, 24, 492);
+            if (useGameplayTableau)
+            {
+                labelLayout.padding = new RectOffset(0, 0, 0, 0);
+                labelLayout.spacing = 0;
+                ConfigureTableauRect(
+                    labelStrip,
+                    playerIndex == 0 ? 474f : 49f,
+                    125f,
+                    24f,
+                    430f);
+            }
 
             for (var section = 0; section < BoardSize; section++)
             {
-                CreateSectionLabel(labelStrip.transform, board, playerIndex, section);
+                CreateSectionLabel(labelStrip.transform, board, playerIndex, section, useGameplayTableau ? 86f : 92f);
             }
 
             var gridObject = CreateUiObject("Grid", gridWrap.transform);
             var gridImage = gridObject.AddComponent<Image>();
-            if (boardPatternSprite != null)
+            if (useGameplayTableau)
+            {
+                gridImage.color = Color.clear;
+                gridImage.raycastTarget = false;
+            }
+            else if (boardPatternSprite != null)
             {
                 gridImage.sprite = boardPatternSprite;
                 gridImage.type = Image.Type.Tiled;
-                gridImage.color = new Color(0.88f, 0.9f, 0.86f, 1f);
+                gridImage.color = playmatSprite != null
+                    ? new Color(1f, 1f, 1f, 0.14f)
+                    : new Color(1f, 1f, 1f, 0.96f);
             }
             else
             {
                 gridImage.color = new Color32(216, 219, 216, 255);
             }
             var gridShadow = gridObject.AddComponent<Shadow>();
-            gridShadow.effectColor = new Color(0f, 0f, 0f, 0.08f);
+            gridShadow.effectColor = useGameplayTableau ? Color.clear : new Color(0f, 0f, 0f, 0.08f);
             gridShadow.effectDistance = new Vector2(2f, -2f);
             var gridOutline = gridObject.AddComponent<Outline>();
-            gridOutline.effectColor = new Color(0f, 0f, 0f, 0.1f);
+            gridOutline.effectColor = useGameplayTableau ? Color.clear : new Color(0f, 0f, 0f, 0.1f);
             gridOutline.effectDistance = new Vector2(1f, -1f);
             var grid = gridObject.AddComponent<GridLayoutGroup>();
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = BoardSize;
-            grid.cellSize = new Vector2(92, 92);
-            grid.spacing = new Vector2(4, 4);
-            grid.padding = new RectOffset(8, 8, 8, 8);
-            AddLayout(gridObject, 492, 492);
+            if (useGameplayTableau)
+            {
+                grid.cellSize = new Vector2(86f, 86f);
+                grid.spacing = new Vector2(2f, 0f);
+                grid.padding = new RectOffset(5, 7, 5, 5);
+                ConfigureTableauRect(
+                    gridObject,
+                    playerIndex == 0 ? 21f : 76f,
+                    120f,
+                    450f,
+                    440f);
+            }
+            else
+            {
+                grid.cellSize = new Vector2(92, 92);
+                grid.spacing = new Vector2(4, 4);
+                grid.padding = new RectOffset(8, 8, 8, 8);
+                AddLayout(gridObject, 492, 492);
+            }
 
             for (var row = 0; row < BoardSize; row++)
             {
@@ -1357,7 +2009,7 @@ namespace Tikatooka
                     var capturedRow = row;
                     var capturedColumn = column;
                     var cellButton = CreateButton($"Cell {row},{column}", gridObject.transform, string.Empty, 36);
-                    if (cellPlateSprite != null)
+                    if (!useGameplayTableau && cellPlateSprite != null)
                     {
                         cellButton.image.sprite = cellPlateSprite;
                         cellButton.image.type = Image.Type.Simple;
@@ -1366,7 +2018,7 @@ namespace Tikatooka
                         cellColors.disabledColor = Color.white;
                         cellButton.colors = cellColors;
                     }
-                    cellButton.image.color = GetCellPlateTint(EmptyCellColor);
+                    cellButton.image.color = useGameplayTableau ? Color.clear : GetCellPlateTint(EmptyCellColor);
                     var cellOutline = cellButton.gameObject.AddComponent<Outline>();
                     cellOutline.effectColor = Color.clear;
                     cellOutline.effectDistance = Vector2.zero;
@@ -1378,7 +2030,6 @@ namespace Tikatooka
                 }
             }
 
-            CreateFrontEdgeMarker(gridObject.transform, playerIndex);
             if (playerIndex == 0)
             {
                 labelStrip.transform.SetAsLastSibling();
@@ -1387,34 +2038,12 @@ namespace Tikatooka
             return board;
         }
 
-        private void CreateFrontEdgeMarker(Transform gridTransform, int playerIndex)
-        {
-            var marker = CreateUiObject("Front Edge Marker", gridTransform);
-            var layoutElement = marker.AddComponent<LayoutElement>();
-            layoutElement.ignoreLayout = true;
-            var markerImage = marker.AddComponent<Image>();
-            markerImage.sprite = diceFaceSprite;
-            var markerColor = PlayerAccentColors[playerIndex];
-            markerColor.a = 0.72f;
-            markerImage.color = markerColor;
-            markerImage.raycastTarget = false;
-
-            var markerRect = marker.GetComponent<RectTransform>();
-            var isRightEdge = playerIndex == 0;
-            markerRect.anchorMin = new Vector2(isRightEdge ? 1f : 0f, 0f);
-            markerRect.anchorMax = new Vector2(isRightEdge ? 1f : 0f, 1f);
-            markerRect.pivot = new Vector2(isRightEdge ? 1f : 0f, 0.5f);
-            markerRect.sizeDelta = new Vector2(7f, -16f);
-            markerRect.anchoredPosition = new Vector2(isRightEdge ? -5f : 5f, 0f);
-            marker.transform.SetAsLastSibling();
-        }
-
         private void CreateBoardProgressBar(Transform parent, PlayerBoard board, int playerIndex)
         {
             var track = CreateUiObject("Board Progress Track", parent);
             board.ProgressTrackImage = track.AddComponent<Image>();
             board.ProgressTrackImage.sprite = diceFaceSprite;
-            board.ProgressTrackImage.color = new Color32(220, 225, 221, 255);
+            board.ProgressTrackImage.color = new Color(0.88f, 0.78f, 0.56f, 0.3f);
             board.ProgressTrackImage.raycastTarget = false;
             AddLayout(track, -1, 10);
 
@@ -1435,10 +2064,10 @@ namespace Tikatooka
             fillRect.offsetMax = Vector2.zero;
         }
 
-        private void CreateSectionLabel(Transform parent, PlayerBoard board, int playerIndex, int section)
+        private void CreateSectionLabel(Transform parent, PlayerBoard board, int playerIndex, int section, float slotHeight)
         {
             var slot = CreateUiObject($"Section Label Slot {section + 1}", parent);
-            AddLayout(slot, 24, 92);
+            AddLayout(slot, 24, slotHeight);
 
             var badge = CreateUiObject($"Section Label {section + 1}", slot.transform);
             var badgeImage = badge.AddComponent<Image>();
@@ -1557,9 +2186,14 @@ namespace Tikatooka
 
         private void CreateScoreComparison(Transform parent)
         {
+            var useGameplayTableau = gameplayTableauSprite != null;
             var panel = CreateUiObject("Section Score Comparison", parent);
             var panelImage = panel.AddComponent<Image>();
-            if (scoreTowerSprite != null)
+            if (useGameplayTableau)
+            {
+                panelImage.color = Color.clear;
+            }
+            else if (scoreTowerSprite != null)
             {
                 panelImage.sprite = scoreTowerSprite;
                 panelImage.type = Image.Type.Simple;
@@ -1571,7 +2205,7 @@ namespace Tikatooka
             }
             panelImage.raycastTarget = false;
             var panelShadow = panel.AddComponent<Shadow>();
-            panelShadow.effectColor = new Color(0f, 0f, 0f, 0.1f);
+            panelShadow.effectColor = useGameplayTableau ? Color.clear : new Color(0f, 0f, 0f, 0.1f);
             panelShadow.effectDistance = new Vector2(3f, -3f);
 
             var panelLayout = panel.AddComponent<VerticalLayoutGroup>();
@@ -1582,11 +2216,15 @@ namespace Tikatooka
             panelLayout.childControlWidth = true;
             panelLayout.childForceExpandHeight = false;
             panelLayout.childForceExpandWidth = true;
+            panelLayout.enabled = !useGameplayTableau;
             AddLayout(panel, 180, 590);
-
             var title = CreateText("Score Comparison Title", panel.transform, "구간 점수", 20, FontStyle.Bold, TextAnchor.MiddleCenter);
             title.color = scoreTowerSprite != null ? ArtDecoCream : TextColor;
             AddLayout(title.gameObject, -1, 42);
+            if (useGameplayTableau)
+            {
+                ConfigureTableauRect(title.gameObject, 0f, 8f, 180f, 42f);
+            }
 
             for (var section = 0; section < BoardSize; section++)
             {
@@ -1603,7 +2241,13 @@ namespace Tikatooka
                 rowLayout.childControlWidth = true;
                 rowLayout.childForceExpandHeight = false;
                 rowLayout.childForceExpandWidth = false;
-                AddLayout(row, -1, 92);
+                var rowHeight = useGameplayTableau ? 86f : 92f;
+                AddLayout(row, -1, rowHeight);
+                if (useGameplayTableau)
+                {
+                    // Match grid y = 120, top padding = 5, cell height = 86.
+                    ConfigureTableauRect(row, 0f, 125f + section * rowHeight, 180f, rowHeight);
+                }
 
                 CreateScoreBadge(row.transform, 0, section);
 
@@ -1643,21 +2287,24 @@ namespace Tikatooka
             var scoreRect = scoreText.GetComponent<RectTransform>();
             scoreRect.anchorMin = Vector2.zero;
             scoreRect.anchorMax = Vector2.one;
-            scoreRect.offsetMin = Vector2.zero;
-            scoreRect.offsetMax = Vector2.zero;
+            // Legacy Text aligns its glyph baseline slightly below the visual centre.
+            // Compensate within the fixed circular medallion without changing the badge
+            // size or its row layout.
+            scoreRect.offsetMin = new Vector2(0.85f, 5f);
+            scoreRect.offsetMax = new Vector2(0.85f, 5f);
         }
 
         private void CreateStageCamera()
         {
             var cameraObject = new GameObject("Dice Cup Camera");
             cameraObject.transform.SetParent(diceStageRoot, false);
-            cameraObject.transform.localPosition = new Vector3(0f, 5.8f, -0.85f);
-            cameraObject.transform.LookAt(diceStageRoot.position + new Vector3(0f, 0.05f, 0.05f));
+            cameraObject.transform.localPosition = new Vector3(-0.2f, 4.65f, -3.65f);
+            cameraObject.transform.LookAt(diceStageRoot.position + new Vector3(-0.25f, 0.08f, 0.05f));
 
             diceCamera = cameraObject.AddComponent<Camera>();
             diceCamera.clearFlags = CameraClearFlags.SolidColor;
             diceCamera.backgroundColor = new Color32(5, 27, 20, 255);
-            diceCamera.fieldOfView = 38f;
+            diceCamera.fieldOfView = 43f;
             diceCamera.nearClipPlane = 0.1f;
             diceCamera.farClipPlane = 30f;
             diceCamera.cullingMask = 1 << DiceStageLayer;
@@ -1675,8 +2322,8 @@ namespace Tikatooka
             keyLight.transform.localPosition = new Vector3(-1.8f, 3.2f, -2.8f);
             var key = keyLight.AddComponent<Light>();
             key.type = LightType.Directional;
-            key.intensity = 1f;
-            key.shadows = LightShadows.None;
+            key.intensity = 0.82f;
+            key.shadows = LightShadows.Hard;
             key.cullingMask = 1 << DiceStageLayer;
             keyLight.transform.rotation = Quaternion.Euler(48f, -24f, 0f);
 
@@ -1685,7 +2332,7 @@ namespace Tikatooka
             fillLight.transform.localPosition = new Vector3(2.2f, 1.8f, -2.2f);
             var fill = fillLight.AddComponent<Light>();
             fill.type = LightType.Point;
-            fill.intensity = 0.8f;
+            fill.intensity = 0.22f;
             fill.range = 5f;
             fill.renderMode = LightRenderMode.ForceVertex;
             fill.shadows = LightShadows.None;
@@ -1770,13 +2417,49 @@ namespace Tikatooka
             rim.transform.SetParent(cup.transform, false);
             rim.transform.localPosition = new Vector3(0f, 0.41f, 0f);
             var rimFilter = rim.AddComponent<MeshFilter>();
-            cupRimMesh = CreateRingMesh(0.49f, 0.69f, 48);
+            cupRimMesh = CreateRingMesh(0.51f, 0.65f, 64);
             rimFilter.sharedMesh = cupRimMesh;
-            rim.AddComponent<MeshRenderer>().sharedMaterial = cupMaterial;
+            rim.AddComponent<MeshRenderer>().sharedMaterial = trayRimMaterial;
             var rimCollider = rim.AddComponent<MeshCollider>();
             rimCollider.sharedMesh = cupRimMesh;
             rimCollider.convex = false;
             rimCollider.material = worldDiePhysicsMaterial;
+
+            // A broad, single-color top ring reads like a target from an elevated camera.
+            // Keep the physical lip narrow and use two fine gold inlays for an Art Deco rim.
+            var innerRimInlay = new GameObject("Cup Inner Rim Gold Inlay");
+            innerRimInlay.transform.SetParent(cup.transform, false);
+            innerRimInlay.transform.localPosition = new Vector3(0f, 0.417f, 0f);
+            var innerRimInlayFilter = innerRimInlay.AddComponent<MeshFilter>();
+            cupRimInnerInlayMesh = CreateRingMesh(0.512f, 0.531f, 64);
+            innerRimInlayFilter.sharedMesh = cupRimInnerInlayMesh;
+            innerRimInlay.AddComponent<MeshRenderer>().sharedMaterial = trayHighlightMaterial;
+
+            var outerRimInlay = new GameObject("Cup Outer Rim Gold Inlay");
+            outerRimInlay.transform.SetParent(cup.transform, false);
+            outerRimInlay.transform.localPosition = new Vector3(0f, 0.418f, 0f);
+            var outerRimInlayFilter = outerRimInlay.AddComponent<MeshFilter>();
+            cupRimOuterInlayMesh = CreateRingMesh(0.63f, 0.648f, 64);
+            outerRimInlayFilter.sharedMesh = cupRimOuterInlayMesh;
+            outerRimInlay.AddComponent<MeshRenderer>().sharedMaterial = trayHighlightMaterial;
+
+            // Decorative bands are render-only.  They give the cup a deliberate Art Deco
+            // silhouette without changing its collider volume or dice-in-cup physics.
+            var upperBand = new GameObject("Cup Upper Brass Band");
+            upperBand.transform.SetParent(cup.transform, false);
+            upperBand.transform.localPosition = new Vector3(0f, 0.18f, 0f);
+            var upperBandFilter = upperBand.AddComponent<MeshFilter>();
+            cupUpperBandMesh = CreateOpenCupMesh(0.626f, 0.04f, 48, false);
+            upperBandFilter.sharedMesh = cupUpperBandMesh;
+            upperBand.AddComponent<MeshRenderer>().sharedMaterial = trayHighlightMaterial;
+
+            var lowerBand = new GameObject("Cup Lower Brass Band");
+            lowerBand.transform.SetParent(cup.transform, false);
+            lowerBand.transform.localPosition = new Vector3(0f, -0.23f, 0f);
+            var lowerBandFilter = lowerBand.AddComponent<MeshFilter>();
+            cupLowerBandMesh = CreateOpenCupMesh(0.626f, 0.035f, 48, false);
+            lowerBandFilter.sharedMesh = cupLowerBandMesh;
+            lowerBand.AddComponent<MeshRenderer>().sharedMaterial = trayHighlightMaterial;
         }
 
         private void CreateWorldDie()
@@ -1863,7 +2546,15 @@ namespace Tikatooka
         {
             var controls = CreateUiObject("Controls", parent);
             var controlsImage = controls.AddComponent<Image>();
-            if (controlPlaqueSprite != null)
+            var usesGeneratedActionTray = gameplayActionTraySprite != null;
+            if (usesGeneratedActionTray)
+            {
+                // The generated tray already contains the complete visual frame.  Leaving
+                // this root clear prevents the old wide wooden bar from becoming a second,
+                // competing border behind it.
+                controlsImage.color = Color.clear;
+            }
+            else if (controlPlaqueSprite != null)
             {
                 controlsImage.sprite = controlPlaqueSprite;
                 controlsImage.type = Image.Type.Sliced;
@@ -1882,43 +2573,156 @@ namespace Tikatooka
             controlsLayout.childForceExpandHeight = true;
             controlsLayout.childForceExpandWidth = false;
             controlsLayout.padding = new RectOffset(18, 18, 9, 9);
-            AddLayout(controls, -1, 74);
+            AddLayout(controls, -1, usesGeneratedActionTray ? 92 : 74);
+
+            if (usesGeneratedActionTray)
+            {
+                CreateGameplayActionTray(controls.transform);
+            }
 
             rollButton = CreateButton("Roll Button", controls.transform, "컵 굴리기", 26);
-            ApplyGeneratedButtonSkin(rollButton, buttonPrimarySprite, ButtonColor);
+            if (usesGeneratedActionTray)
+            {
+                ConfigureGameplayActionTrayButton(rollButton, -200f);
+            }
+            else
+            {
+                ApplyGeneratedButtonSkin(rollButton, buttonPrimarySprite, ButtonColor);
+            }
             rollButtonText = rollButton.GetComponentInChildren<Text>();
+            if (rollButtonText != null)
+            {
+                rollButtonText.color = ArtDecoCream;
+                ApplyTextShadow(rollButtonText, new Color32(24, 10, 8, 225), new Vector2(1f, -1f));
+            }
             rollButton.onClick.AddListener(RollDie);
-            AddControlButtonDepth(rollButton.gameObject);
-            AddLayout(rollButton.gameObject, 190, 56);
+            if (!usesGeneratedActionTray)
+            {
+                AddControlButtonDepth(rollButton.gameObject);
+                AddLayout(rollButton.gameObject, 190, 56);
+            }
 
             resetButton = CreateButton("Reset Button", controls.transform, "새 게임", 26);
-            ApplyGeneratedButtonSkin(resetButton, buttonSecondarySprite, new Color32(65, 73, 82, 255));
+            if (usesGeneratedActionTray)
+            {
+                ConfigureGameplayActionTrayButton(resetButton, 0f);
+            }
+            else
+            {
+                ApplyGeneratedButtonSkin(resetButton, buttonPrimarySprite, ButtonColor);
+            }
             resetButton.onClick.AddListener(StartNewGame);
-            AddControlButtonDepth(resetButton.gameObject);
             var resetButtonText = resetButton.GetComponentInChildren<Text>();
             if (resetButtonText != null)
             {
-                resetButtonText.color = Color.white;
+                resetButtonText.color = ArtDecoCream;
+                ApplyTextShadow(resetButtonText, new Color32(24, 10, 8, 225), new Vector2(1f, -1f));
             }
 
-            AddLayout(resetButton.gameObject, 190, 56);
+            if (!usesGeneratedActionTray)
+            {
+                AddControlButtonDepth(resetButton.gameObject);
+                AddLayout(resetButton.gameObject, 190, 56);
+            }
 
             modeButton = CreateButton("Mode Select Button", controls.transform, "모드 선택", 24);
-            ApplyGeneratedButtonSkin(modeButton, buttonSecondarySprite, ScoreNeutralColor);
+            if (usesGeneratedActionTray)
+            {
+                ConfigureGameplayActionTrayButton(modeButton, 200f);
+            }
+            else
+            {
+                ApplyGeneratedButtonSkin(modeButton, buttonPrimarySprite, ButtonColor);
+            }
             modeButton.onClick.AddListener(ShowModeSelection);
-            AddControlButtonDepth(modeButton.gameObject);
             var modeButtonText = modeButton.GetComponentInChildren<Text>();
             if (modeButtonText != null)
             {
-                modeButtonText.color = Color.white;
+                modeButtonText.color = ArtDecoCream;
+                ApplyTextShadow(modeButtonText, new Color32(24, 10, 8, 225), new Vector2(1f, -1f));
             }
 
-            AddLayout(modeButton.gameObject, 190, 56);
+            if (!usesGeneratedActionTray)
+            {
+                AddControlButtonDepth(modeButton.gameObject);
+                AddLayout(modeButton.gameObject, 190, 56);
+            }
+        }
+
+        private void CreateGameplayActionTray(Transform parent)
+        {
+            var tray = CreateUiObject("Gameplay Action Tray", parent);
+            var trayImage = tray.AddComponent<Image>();
+            trayImage.sprite = gameplayActionTraySprite;
+            trayImage.type = Image.Type.Simple;
+            trayImage.preserveAspect = false;
+            trayImage.color = Color.white;
+            trayImage.raycastTarget = false;
+
+            var trayLayout = tray.AddComponent<LayoutElement>();
+            trayLayout.ignoreLayout = true;
+            var trayRect = tray.GetComponent<RectTransform>();
+            trayRect.anchorMin = new Vector2(0.5f, 0.5f);
+            trayRect.anchorMax = new Vector2(0.5f, 0.5f);
+            trayRect.pivot = new Vector2(0.5f, 0.5f);
+            trayRect.sizeDelta = new Vector2(624f, 86f);
+            trayRect.anchoredPosition = Vector2.zero;
+            tray.transform.SetAsFirstSibling();
+        }
+
+        private static void ConfigureGameplayActionTrayButton(Button button, float horizontalPosition)
+        {
+            if (button == null || button.image == null)
+            {
+                return;
+            }
+
+            // The tray supplies the shared frame.  These remain transparent hit targets
+            // so each live Korean label stays centered inside its generated bay.
+            button.image.color = Color.clear;
+            button.transition = Selectable.Transition.None;
+            var layout = button.GetComponent<LayoutElement>() ?? button.gameObject.AddComponent<LayoutElement>();
+            layout.ignoreLayout = true;
+
+            var rect = button.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(184f, 62f);
+            rect.anchoredPosition = new Vector2(horizontalPosition, 0f);
+
+            var label = button.GetComponentInChildren<Text>();
+            if (label == null)
+            {
+                return;
+            }
+
+            label.fontSize = 22;
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 19;
+            label.resizeTextMaxSize = 22;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+            var labelRect = label.rectTransform;
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = new Vector2(8f, 0f);
+            labelRect.offsetMax = new Vector2(-8f, 0f);
         }
 
         private void StartNewGame()
         {
             StopGameplayCoroutines();
+            if (titleScreenOverlay != null)
+            {
+                titleScreenOverlay.SetActive(false);
+            }
+
+            if (boardUiRoot != null)
+            {
+                boardUiRoot.SetActive(true);
+            }
+
             gameStarted = true;
             if (modeSelectionOverlay != null)
             {
@@ -1954,9 +2758,101 @@ namespace Tikatooka
             FocusFirstAvailableAction();
         }
 
+        private void ShowTitleScreen()
+        {
+            StopGameplayCoroutines();
+            gameStarted = false;
+            currentDie = 0;
+            shakeEnergy = 0f;
+            ResetShakeTracking();
+            hasPendingDie = false;
+            pendingDieCanAttack = false;
+            pendingDieCanPlaceOnOpponent = false;
+            isRolling = false;
+            isWaitingForCupShake = false;
+            isCupDragging = false;
+            cupReleaseStarted = false;
+            isAttackAnimating = false;
+            isAiThinking = false;
+            placementComplete = false;
+            SetDiceOverlayVisible(false);
+            ClearAttackAnimationLayer();
+
+            if (modeSelectionOverlay != null)
+            {
+                modeSelectionOverlay.SetActive(false);
+            }
+
+            if (titleHowToPlayOverlay != null)
+            {
+                titleHowToPlayOverlay.SetActive(false);
+            }
+
+            if (resultBanner != null)
+            {
+                resultBanner.SetActive(false);
+            }
+
+            if (boardUiRoot != null)
+            {
+                boardUiRoot.SetActive(false);
+            }
+
+            if (titleScreenOverlay != null)
+            {
+                titleScreenOverlay.SetActive(true);
+                titleScreenOverlay.transform.SetAsLastSibling();
+            }
+
+            Canvas.ForceUpdateCanvases();
+            if (bootCoverInputBlocked)
+            {
+                EventSystem.current?.SetSelectedGameObject(null);
+                return;
+            }
+
+            FocusTitleScreen();
+        }
+
+        private void OpenModeSelectionFromTitle()
+        {
+            if (titleHowToPlayOverlay != null)
+            {
+                titleHowToPlayOverlay.SetActive(false);
+            }
+
+            if (titleScreenOverlay != null)
+            {
+                titleScreenOverlay.SetActive(false);
+            }
+
+            if (boardUiRoot != null)
+            {
+                boardUiRoot.SetActive(true);
+            }
+
+            ShowModeSelection();
+        }
+
         private void ShowModeSelection()
         {
             StopGameplayCoroutines();
+            gameAudio?.PlayMenuOpen();
+            if (titleHowToPlayOverlay != null)
+            {
+                titleHowToPlayOverlay.SetActive(false);
+            }
+
+            if (titleScreenOverlay != null)
+            {
+                titleScreenOverlay.SetActive(false);
+            }
+
+            if (boardUiRoot != null)
+            {
+                boardUiRoot.SetActive(true);
+            }
+
             gameStarted = false;
             currentDie = 0;
             shakeEnergy = 0f;
@@ -2003,9 +2899,85 @@ namespace Tikatooka
             }
         }
 
+        private void FocusTitleScreen()
+        {
+            if (titleHowToPlayOverlay != null && titleHowToPlayOverlay.activeInHierarchy)
+            {
+                FocusTitleHowToPlay();
+                return;
+            }
+
+            if (EventSystem.current != null
+                && titleScreenOverlay != null
+                && titleScreenOverlay.activeInHierarchy
+                && titleStartButton != null)
+            {
+                EventSystem.current.SetSelectedGameObject(titleStartButton.gameObject);
+            }
+        }
+
+        private void OpenTitleHowToPlay()
+        {
+            if (titleHowToPlayOverlay == null)
+            {
+                return;
+            }
+
+            gameAudio?.PlayMenuOpen();
+            titleHowToPlayOverlay.SetActive(true);
+            titleHowToPlayOverlay.transform.SetAsLastSibling();
+            Canvas.ForceUpdateCanvases();
+
+            if (!bootCoverInputBlocked)
+            {
+                FocusTitleHowToPlay();
+            }
+        }
+
+        private void CloseTitleHowToPlay()
+        {
+            if (titleHowToPlayOverlay == null || !titleHowToPlayOverlay.activeSelf)
+            {
+                return;
+            }
+
+            titleHowToPlayOverlay.SetActive(false);
+            gameAudio?.PlayMenuClose();
+            FocusTitleScreen();
+        }
+
+        private void FocusTitleHowToPlay()
+        {
+            if (EventSystem.current != null
+                && titleHowToPlayOverlay != null
+                && titleHowToPlayOverlay.activeInHierarchy
+                && titleHowToCloseButton != null)
+            {
+                EventSystem.current.SetSelectedGameObject(titleHowToCloseButton.gameObject);
+            }
+        }
+
+        private void FocusActiveFrontScreen()
+        {
+            if (titleHowToPlayOverlay != null && titleHowToPlayOverlay.activeInHierarchy)
+            {
+                FocusTitleHowToPlay();
+                return;
+            }
+
+            if (titleScreenOverlay != null && titleScreenOverlay.activeInHierarchy)
+            {
+                FocusTitleScreen();
+                return;
+            }
+
+            FocusModeSelection();
+        }
+
         private void SelectMatchMode(MatchMode mode)
         {
             currentMode = mode;
+            gameAudio?.PlayConfirm();
             StartNewGame();
         }
 
@@ -2028,6 +3000,7 @@ namespace Tikatooka
             pendingDieCanPlaceOnOpponent = nextRollCanPlaceOnOpponent;
             nextRollCanAttack = true;
             nextRollCanPlaceOnOpponent = false;
+            gameAudio?.PlayCupReady();
             SetDiceOverlayVisible(true);
             ResetDiceStage();
         }
@@ -2045,6 +3018,7 @@ namespace Tikatooka
             }
 
             isCupDragging = true;
+            gameAudio?.StartCupShake();
             mouseCupDragActive |= Mouse.current != null && Mouse.current.leftButton.isPressed;
             cupDragStartScreenPosition = screenPosition;
             polledCupPointerPosition = screenPosition;
@@ -2077,6 +3051,7 @@ namespace Tikatooka
 
             RecordShakeDelta(delta);
             shakeEnergy = Mathf.Min(2.35f, shakeEnergy + Mathf.Max(0.025f, delta.magnitude * 0.009f));
+            gameAudio?.UpdateCupShake(shakeEnergy);
             ApplyCupShakePose(screenPosition, delta);
         }
 
@@ -2093,6 +3068,7 @@ namespace Tikatooka
             isWaitingForCupShake = false;
             cupReleaseStarted = true;
             shakeEnergy = Mathf.Max(shakeEnergy, 0.18f);
+            gameAudio?.StopCupShake();
             StartCoroutine(FinishPlayerCupShakeAndRoll(BuildShakeMotionSeed()));
         }
 
@@ -2114,6 +3090,8 @@ namespace Tikatooka
             isCupDragging = false;
             cupReleaseStarted = false;
             shakeEnergy = 0f;
+            gameAudio?.StopCupShake();
+            gameAudio?.PlayError();
             ResetShakeTracking();
             SetDiceOverlayVisible(false);
             RefreshView();
@@ -2289,6 +3267,8 @@ namespace Tikatooka
         private IEnumerator RollDieRoutine(int finalDie)
         {
             worldDieHasTouchedSurface = false;
+            gameAudio?.StopCupShake();
+            gameAudio?.PlayDiceThrow();
             var startCupPosition = diceCupTransform.localPosition;
             var startCupRotation = diceCupTransform.localRotation;
             yield return PourDieFromCupRoutine(startCupPosition, startCupRotation);
@@ -2544,6 +3524,7 @@ namespace Tikatooka
             }
 
             var placedColumn = boards[playerIndex].Place(row, column, currentDie, !pendingDieCanAttack);
+            gameAudio?.PlayDiePlaced();
             currentDie = 0;
             hasPendingDie = false;
             pendingDieCanAttack = false;
@@ -2662,6 +3643,7 @@ namespace Tikatooka
                 yield return null;
             }
 
+            gameAudio?.PlayAttackImpact();
             const float knockDuration = 0.48f;
             elapsed = 0f;
             var attackEnd = impactPoint + direction * 230f + perpendicular * 42f;
@@ -2946,6 +3928,8 @@ namespace Tikatooka
             pendingDieCanPlaceOnOpponent = nextRollCanPlaceOnOpponent;
             nextRollCanAttack = true;
             nextRollCanPlaceOnOpponent = false;
+            gameAudio?.PlayCupReady();
+            gameAudio?.StartCupShake();
             SetDiceOverlayVisible(true);
             ResetDiceStage();
 
@@ -3318,16 +4302,20 @@ namespace Tikatooka
             {
                 var board = boards[player];
                 board.TitleText.text = GetPlayerDisplayName(player);
-                board.ProgressText.text = $"{board.FilledCount}/{board.Capacity}";
+                board.ProgressText.text = $"{board.FilledCount} / {board.Capacity}";
                 RefreshBoardProgressBar(board, player);
                 var isActiveBoard = player == activePlayer && !placementComplete;
-                board.PanelImage.color = panelParchmentSprite != null
-                    ? Color.white
-                    : isActiveBoard ? new Color32(240, 250, 247, 255) : PanelColor;
+                board.PanelImage.color = gameplayTableauSprite != null
+                    ? Color.clear
+                    : playerOnePlaymatSprite != null || playerTwoPlaymatSprite != null || playerBoardPanelSprite != null || panelParchmentSprite != null
+                        ? Color.white
+                        : isActiveBoard ? new Color32(240, 250, 247, 255) : PanelColor;
                 if (board.PanelOutline != null)
                 {
-                    board.PanelOutline.effectColor = isActiveBoard ? PlayerAccentColors[player] : Color.clear;
-                    board.PanelOutline.effectDistance = isActiveBoard ? new Vector2(4f, -4f) : Vector2.zero;
+                    board.PanelOutline.effectColor = isActiveBoard
+                        ? new Color(ArtDecoMutedGold.r, ArtDecoMutedGold.g, ArtDecoMutedGold.b, 0.62f)
+                        : Color.clear;
+                    board.PanelOutline.effectDistance = isActiveBoard ? new Vector2(1f, -1f) : Vector2.zero;
                 }
 
                 for (var row = 0; row < BoardSize; row++)
@@ -3345,7 +4333,9 @@ namespace Tikatooka
                         button.interactable = !IsAiTurnActive() && (canPlace || canAttack);
                         text.text = string.Empty;
                         text.color = GetCellTextColor(value, canPlace, canAttack, isAttackProtected);
-                        button.image.color = GetCellPlateTint(GetCellColor(player, column, value, canPlace, canAttack));
+                        button.image.color = gameplayTableauSprite != null
+                            ? Color.clear
+                            : GetCellPlateTint(GetCellColor(player, column, value, canPlace, canAttack));
                         RefreshCellPips(board, row, column, value, canPlace, canAttack, isAttackProtected);
                         RefreshCellOutline(board, row, column, canPlace, canAttack);
                     }
@@ -3355,13 +4345,15 @@ namespace Tikatooka
             RefreshScoreComparison();
 
             rollButton.interactable = gameStarted && !IsAiTurnActive() && !placementComplete && !hasPendingDie && !isRolling && !isAttackAnimating && !boards[activePlayer].IsFull;
-            rollButton.image.color = buttonPrimarySprite != null
-                ? rollButton.interactable ? Color.white : new Color(0.58f, 0.58f, 0.58f, 0.86f)
-                : rollButton.interactable ? ButtonColor : DisabledButtonColor;
+            rollButton.image.color = gameplayActionTraySprite != null
+                ? Color.clear
+                : buttonPrimarySprite != null
+                    ? rollButton.interactable ? Color.white : new Color(0.58f, 0.58f, 0.58f, 0.86f)
+                    : rollButton.interactable ? ButtonColor : DisabledButtonColor;
             if (rollButtonText != null)
             {
                 rollButtonText.color = buttonPrimarySprite != null
-                    ? rollButton.interactable ? new Color32(52, 29, 16, 255) : ArtDecoCream
+                    ? rollButton.interactable ? ArtDecoCream : new Color(ArtDecoMutedGold.r, ArtDecoMutedGold.g, ArtDecoMutedGold.b, 0.68f)
                     : TextColor;
                 if (isRolling)
                 {
@@ -3406,10 +4398,10 @@ namespace Tikatooka
             }
 
             statusText.text = BuildStatusText();
-            statusText.color = controlPlaqueSprite != null
+            statusText.color = turnStatusPlaqueSprite != null || controlPlaqueSprite != null
                 ? placementComplete
                     ? ArtDecoCream
-                    : Color.Lerp(ArtDecoCream, PlayerAccentColors[activePlayer], 0.42f)
+                    : Color.Lerp(ArtDecoCream, PlayerAccentColors[activePlayer], 0.18f)
                 : placementComplete ? TextColor : PlayerAccentColors[activePlayer];
             RefreshHeaderTint();
             RefreshResultBanner();
@@ -3439,9 +4431,11 @@ namespace Tikatooka
         {
             if (board.ProgressTrackImage != null)
             {
-                board.ProgressTrackImage.color = board.IsFull
-                    ? new Color32(226, 232, 226, 255)
-                    : new Color32(220, 225, 221, 255);
+                board.ProgressTrackImage.color = gameplayTableauSprite != null
+                    ? Color.clear
+                    : board.IsFull
+                        ? new Color(0.95f, 0.84f, 0.6f, 0.42f)
+                        : new Color(0.88f, 0.78f, 0.56f, 0.3f);
             }
 
             if (board.ProgressFillImage == null)
@@ -3582,9 +4576,9 @@ namespace Tikatooka
 
             if (isAttackAnimating)
             {
-                drawnDieImage.color = PanelColor;
+                drawnDieImage.color = drawnDieHudSprite != null ? Color.white : PanelColor;
                 drawnDieLabel.text = "공격";
-                drawnDieLabel.color = MutedTextColor;
+                drawnDieLabel.color = drawnDieHudSprite != null ? HudCardLabelColor : HudInkColor;
                 drawnDieFaceImage.color = GetDiceFaceArtTint(PanelColor);
                 drawnDieText.text = string.Empty;
                 RefreshDrawnDiePips(0, Color.clear);
@@ -3594,10 +4588,12 @@ namespace Tikatooka
 
             if (hasPendingDie && currentDie > 0)
             {
-                drawnDieImage.color = pendingDieCanAttack ? DieColors[Mathf.Clamp(currentDie - 1, 0, DieColors.Length - 1)] : Color.black;
+                drawnDieImage.color = drawnDieHudSprite != null
+                    ? Color.white
+                    : pendingDieCanAttack ? DieColors[Mathf.Clamp(currentDie - 1, 0, DieColors.Length - 1)] : Color.black;
                 var textColor = !pendingDieCanAttack || currentDie == 6 ? Color.white : TextColor;
                 drawnDieLabel.text = pendingDieCanAttack ? "주사위" : "공격 불가";
-                drawnDieLabel.color = textColor;
+                drawnDieLabel.color = drawnDieHudSprite != null ? HudCardLabelColor : textColor;
                 drawnDieFaceImage.color = GetDiceFaceArtTint(pendingDieCanAttack ? DieColors[Mathf.Clamp(currentDie - 1, 0, DieColors.Length - 1)] : Color.black);
                 drawnDieText.text = string.Empty;
                 var pipColor = diceFaceArtSprite != null && pendingDieCanAttack
@@ -3610,9 +4606,13 @@ namespace Tikatooka
 
             if (isRolling)
             {
-                drawnDieImage.color = pendingDieCanAttack ? new Color32(255, 246, 226, 255) : Color.black;
+                drawnDieImage.color = drawnDieHudSprite != null
+                    ? Color.white
+                    : pendingDieCanAttack ? new Color32(255, 246, 226, 255) : Color.black;
                 drawnDieLabel.text = pendingDieCanAttack ? "주사위" : "공격 불가";
-                drawnDieLabel.color = pendingDieCanAttack ? MutedTextColor : Color.white;
+                drawnDieLabel.color = drawnDieHudSprite != null
+                    ? HudCardLabelColor
+                    : pendingDieCanAttack ? MutedTextColor : Color.white;
                 drawnDieFaceImage.color = GetDiceFaceArtTint(pendingDieCanAttack ? PanelColor : Color.black);
                 drawnDieText.color = pendingDieCanAttack ? TextColor : Color.white;
                 drawnDieText.text = "?";
@@ -3621,11 +4621,11 @@ namespace Tikatooka
                 return;
             }
 
-            drawnDieImage.color = PanelColor;
+            drawnDieImage.color = drawnDieHudSprite != null ? Color.white : PanelColor;
             drawnDieLabel.text = "주사위";
-            drawnDieLabel.color = MutedTextColor;
+            drawnDieLabel.color = drawnDieHudSprite != null ? HudCardLabelColor : HudInkColor;
             drawnDieFaceImage.color = GetDiceFaceArtTint(PanelColor);
-            drawnDieText.color = MutedTextColor;
+            drawnDieText.color = HudInkColor;
             drawnDieText.text = "-";
             RefreshDrawnDiePips(0, Color.clear);
             SetDrawnDieProtectionMarker(false, 0f);
@@ -3645,18 +4645,20 @@ namespace Tikatooka
 
             if (playerOneWins == playerTwoWins)
             {
-                matchScoreImage.color = ScorePanelColor;
-                matchScoreText.color = TextColor;
-                matchScoreLabel.color = MutedTextColor;
+                matchScoreImage.color = matchScoreHudSprite != null ? Color.white : ScorePanelColor;
+                matchScoreText.color = matchScoreHudSprite != null ? ArtDecoCream : HudScoreColor;
+                matchScoreLabel.color = matchScoreHudSprite != null ? HudCardLabelColor : HudInkColor;
                 return;
             }
 
             var winner = playerOneWins > playerTwoWins ? 0 : 1;
             var background = PlayerAccentColors[winner];
             background.a = 0.18f;
-            matchScoreImage.color = background;
-            matchScoreText.color = PlayerAccentColors[winner];
-            matchScoreLabel.color = PlayerAccentColors[winner];
+            matchScoreImage.color = matchScoreHudSprite != null ? Color.white : background;
+            matchScoreText.color = matchScoreHudSprite != null
+                ? Color.Lerp(ArtDecoCream, PlayerAccentColors[winner], 0.4f)
+                : PlayerAccentColors[winner];
+            matchScoreLabel.color = matchScoreHudSprite != null ? HudCardLabelColor : PlayerAccentColors[winner];
         }
 
         private void RefreshResultBanner()
@@ -3680,6 +4682,22 @@ namespace Tikatooka
 
             var playerOneWins = CountSectionWins(0);
             var playerTwoWins = CountSectionWins(1);
+            if (resultJustOpened)
+            {
+                if (playerOneWins == playerTwoWins)
+                {
+                    gameAudio?.PlayMatchDraw();
+                }
+                else if (currentMode == MatchMode.Pve && playerTwoWins > playerOneWins)
+                {
+                    gameAudio?.PlayMatchDefeat();
+                }
+                else
+                {
+                    gameAudio?.PlayMatchVictory();
+                }
+            }
+
             if (resultDetailText != null)
             {
                 resultDetailText.text = $"구간 승수 {playerOneWins} : {playerTwoWins}";
@@ -4029,6 +5047,7 @@ namespace Tikatooka
             }
 
             worldDieHasTouchedSurface = true;
+            gameAudio?.PlayDiceTableImpact();
         }
 
         private void SetDiceOverlayVisible(bool visible)
@@ -4440,7 +5459,17 @@ namespace Tikatooka
             textRect.offsetMin = Vector2.zero;
             textRect.offsetMax = Vector2.zero;
 
+            if (!name.StartsWith("Cell "))
+            {
+                button.onClick.AddListener(PlayButtonClickSound);
+            }
+
             return button;
+        }
+
+        private void PlayButtonClickSound()
+        {
+            gameAudio?.PlayButtonClick();
         }
 
         private static void ApplyGeneratedButtonSkin(Button button, Sprite generatedSprite, Color fallbackColor)
@@ -4460,6 +5489,59 @@ namespace Tikatooka
             }
 
             button.image.color = fallbackColor;
+        }
+
+        private static void ApplyFixedAspectButtonArtwork(Button button)
+        {
+            if (button == null || button.image == null)
+            {
+                return;
+            }
+
+            // Mode-choice artwork is exported at the final 210:72 proportion.  Slicing this
+            // compact plaque would compress its top and bottom frame, so render it as one image.
+            button.image.type = Image.Type.Simple;
+            button.image.preserveAspect = false;
+        }
+
+        private static void ApplyTextShadow(Text text, Color color, Vector2 distance)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            var shadow = text.GetComponent<Shadow>();
+            if (shadow == null)
+            {
+                shadow = text.gameObject.AddComponent<Shadow>();
+            }
+
+            shadow.effectColor = color;
+            shadow.effectDistance = distance;
+        }
+
+        private static void ApplyPlayerHeaderTypography(Text text, Color color)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            text.color = color;
+            text.resizeTextForBestFit = false;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            ApplyTextShadow(text, new Color32(25, 12, 7, 230), new Vector2(1.5f, -1.5f));
+
+            var outline = text.GetComponent<Outline>();
+            if (outline == null)
+            {
+                outline = text.gameObject.AddComponent<Outline>();
+            }
+
+            outline.effectColor = new Color32(59, 33, 17, 235);
+            outline.effectDistance = new Vector2(0.75f, -0.75f);
         }
 
         private static void AddControlButtonDepth(GameObject buttonObject)
@@ -4495,6 +5577,30 @@ namespace Tikatooka
             var obj = new GameObject(name, typeof(RectTransform));
             obj.transform.SetParent(parent, false);
             return obj;
+        }
+
+        private static GameObject CreateHudClipRegion(
+            string name,
+            Transform parent,
+            Vector2 anchorMin,
+            Vector2 anchorMax)
+        {
+            var region = CreateUiObject(name, parent);
+            var regionRect = region.GetComponent<RectTransform>();
+            regionRect.anchorMin = anchorMin;
+            regionRect.anchorMax = anchorMax;
+            regionRect.offsetMin = Vector2.zero;
+            regionRect.offsetMax = Vector2.zero;
+            region.AddComponent<RectMask2D>();
+            return region;
+        }
+
+        private static void StretchHudContent(RectTransform contentRect, float horizontalInset, float verticalInset)
+        {
+            contentRect.anchorMin = Vector2.zero;
+            contentRect.anchorMax = Vector2.one;
+            contentRect.offsetMin = new Vector2(horizontalInset, verticalInset);
+            contentRect.offsetMax = new Vector2(-horizontalInset, -verticalInset);
         }
 
         private static Material CreateStageMaterial(string name, Color color, bool transparent)
@@ -4794,15 +5900,31 @@ namespace Tikatooka
             DestroyRuntimeObject(cupOuterMesh);
             DestroyRuntimeObject(cupInnerMesh);
             DestroyRuntimeObject(cupRimMesh);
+            DestroyRuntimeObject(cupRimInnerInlayMesh);
+            DestroyRuntimeObject(cupRimOuterInlayMesh);
+            DestroyRuntimeObject(cupUpperBandMesh);
+            DestroyRuntimeObject(cupLowerBandMesh);
             DestroyRuntimeSprite(scoreBadgeSprite);
             DestroyRuntimeSprite(diceFaceSprite);
             DestroyRuntimeSprite(dicePipSprite);
             DestroyRuntimeObject(boardPatternSprite);
             DestroyRuntimeObject(diceCeramicSprite);
             DestroyRuntimeObject(panelParchmentSprite);
+            DestroyRuntimeObject(playerBoardPanelSprite);
+            DestroyRuntimeObject(playerOnePlaymatSprite);
+            DestroyRuntimeObject(playerTwoPlaymatSprite);
+            DestroyRuntimeObject(gameplayTableauSprite);
+            DestroyRuntimeObject(playerHeaderSprite);
+            DestroyRuntimeObject(playerStatusHeaderSprite);
+            DestroyRuntimeObject(playerProgressRailSprite);
+            DestroyRuntimeObject(scoreHeaderSprite);
             DestroyRuntimeObject(mainBoardBackdropSprite);
             DestroyRuntimeObject(scoreTowerSprite);
             DestroyRuntimeObject(controlPlaqueSprite);
+            DestroyRuntimeObject(turnStatusPlaqueSprite);
+            DestroyRuntimeObject(gameplayActionTraySprite);
+            DestroyRuntimeObject(matchScoreHudSprite);
+            DestroyRuntimeObject(drawnDieHudSprite);
             DestroyRuntimeObject(buttonPrimarySprite);
             DestroyRuntimeObject(buttonSecondarySprite);
             DestroyRuntimeObject(buttonPvpSprite);
@@ -4810,12 +5932,26 @@ namespace Tikatooka
             DestroyRuntimeObject(cellPlateSprite);
             DestroyRuntimeObject(scoreMedallionSprite);
             DestroyRuntimeObject(diceFaceArtSprite);
+            DestroyRuntimeObject(titleBackdropSprite);
+            DestroyRuntimeObject(titleCrestSprite);
             boardPatternSprite = null;
             diceCeramicSprite = null;
             panelParchmentSprite = null;
+            playerBoardPanelSprite = null;
+            playerOnePlaymatSprite = null;
+            playerTwoPlaymatSprite = null;
+            gameplayTableauSprite = null;
+            playerHeaderSprite = null;
+            playerStatusHeaderSprite = null;
+            playerProgressRailSprite = null;
+            scoreHeaderSprite = null;
             mainBoardBackdropSprite = null;
             scoreTowerSprite = null;
             controlPlaqueSprite = null;
+            turnStatusPlaqueSprite = null;
+            gameplayActionTraySprite = null;
+            matchScoreHudSprite = null;
+            drawnDieHudSprite = null;
             buttonPrimarySprite = null;
             buttonSecondarySprite = null;
             buttonPvpSprite = null;
@@ -4823,12 +5959,26 @@ namespace Tikatooka
             cellPlateSprite = null;
             scoreMedallionSprite = null;
             diceFaceArtSprite = null;
+            titleBackdropSprite = null;
+            titleCrestSprite = null;
             boardPatternTexture = null;
             diceCeramicTexture = null;
             panelParchmentTexture = null;
+            playerBoardPanelTexture = null;
+            playerOnePlaymatTexture = null;
+            playerTwoPlaymatTexture = null;
+            gameplayTableauTexture = null;
+            playerHeaderTexture = null;
+            playerStatusHeaderTexture = null;
+            playerProgressRailTexture = null;
+            scoreHeaderTexture = null;
             mainBoardBackdropTexture = null;
             scoreTowerTexture = null;
             controlPlaqueTexture = null;
+            turnStatusPlaqueTexture = null;
+            gameplayActionTrayTexture = null;
+            matchScoreHudTexture = null;
+            drawnDieHudTexture = null;
             buttonPrimaryTexture = null;
             buttonSecondaryTexture = null;
             buttonPvpTexture = null;
@@ -4839,6 +5989,8 @@ namespace Tikatooka
             worldDieSurfaceTexture = null;
             walnutTableTexture = null;
             cupLeatherTexture = null;
+            titleBackdropTexture = null;
+            titleCrestTexture = null;
             if (ownsDefaultFont)
             {
                 DestroyRuntimeObject(defaultFont);
@@ -4943,19 +6095,42 @@ namespace Tikatooka
             boardPatternTexture = Resources.Load<Texture2D>("Art/TikatookaFeltV2") ?? Resources.Load<Texture2D>("Art/TikatookaBoardPattern");
             diceCeramicTexture = Resources.Load<Texture2D>("Art/TikatookaDiceCeramicV2") ?? Resources.Load<Texture2D>("Art/TikatookaDiceCeramic");
             panelParchmentTexture = Resources.Load<Texture2D>("Art/TikatookaPanelParchment");
+            playerBoardPanelTexture = Resources.Load<Texture2D>("Art/TikatookaBoardPanelV2");
+            playerOnePlaymatTexture = Resources.Load<Texture2D>("Art/TikatookaPlayerPlaymatP1V1");
+            playerTwoPlaymatTexture = Resources.Load<Texture2D>("Art/TikatookaPlayerPlaymatP2V1");
+            gameplayTableauTexture = Resources.Load<Texture2D>("Art/TikatookaGameplayTableauV2");
+            playerHeaderTexture = Resources.Load<Texture2D>("Art/TikatookaPlayerHeaderV1");
+            playerStatusHeaderTexture = Resources.Load<Texture2D>("Art/TikatookaPlayerStatusHeaderV1");
+            playerProgressRailTexture = Resources.Load<Texture2D>("Art/TikatookaPlayerProgressRailV1");
+            scoreHeaderTexture = Resources.Load<Texture2D>("Art/TikatookaScoreHeaderV1");
             mainBoardBackdropTexture = Resources.Load<Texture2D>("Art/TikatookaMainBoardBackdropV2");
             scoreTowerTexture = Resources.Load<Texture2D>("Art/TikatookaScoreTowerV1");
             controlPlaqueTexture = Resources.Load<Texture2D>("Art/TikatookaControlPlaqueV1");
-            buttonPrimaryTexture = Resources.Load<Texture2D>("Art/TikatookaButtonPrimaryV1");
+            turnStatusPlaqueTexture = Resources.Load<Texture2D>("Art/TikatookaTurnStatusPlaqueV1");
+            gameplayActionTrayTexture = Resources.Load<Texture2D>("Art/TikatookaGameplayActionTrayV3");
+            matchScoreHudTexture = Resources.Load<Texture2D>("Art/TikatookaMatchScoreHudV2")
+                ?? Resources.Load<Texture2D>("Art/TikatookaMatchScoreHudV1");
+            drawnDieHudTexture = Resources.Load<Texture2D>("Art/TikatookaDrawnDieHudV2")
+                ?? Resources.Load<Texture2D>("Art/TikatookaDrawnDieHudV1");
+            buttonPrimaryTexture = Resources.Load<Texture2D>("Art/TikatookaButtonPrimaryV4")
+                ?? Resources.Load<Texture2D>("Art/TikatookaButtonPrimaryV3")
+                ?? Resources.Load<Texture2D>("Art/TikatookaButtonPrimaryV2")
+                ?? Resources.Load<Texture2D>("Art/TikatookaButtonPrimaryV1");
             buttonSecondaryTexture = Resources.Load<Texture2D>("Art/TikatookaButtonSecondaryV1");
-            buttonPvpTexture = Resources.Load<Texture2D>("Art/TikatookaButtonPvpV1");
-            buttonPveTexture = Resources.Load<Texture2D>("Art/TikatookaButtonPveV1");
+            // Use the shared stepped Art Deco plaque silhouette for all actions; only the
+            // PVE centre material changes to blue so the mode choice remains immediately clear.
+            buttonPvpTexture = Resources.Load<Texture2D>("Art/TikatookaButtonPrimaryV4")
+                ?? Resources.Load<Texture2D>("Art/TikatookaButtonPvpV1");
+            buttonPveTexture = Resources.Load<Texture2D>("Art/TikatookaButtonPveV3")
+                ?? Resources.Load<Texture2D>("Art/TikatookaButtonPveV1");
             cellPlateTexture = Resources.Load<Texture2D>("Art/TikatookaCellPlateV1");
             scoreMedallionTexture = Resources.Load<Texture2D>("Art/TikatookaScoreMedallionV1");
             diceFaceArtTexture = Resources.Load<Texture2D>("Art/TikatookaDiceFaceV3");
             worldDieSurfaceTexture = Resources.Load<Texture2D>("Art/TikatookaDicePorcelainSurfaceV3");
             walnutTableTexture = Resources.Load<Texture2D>("Art/TikatookaWalnutTable");
             cupLeatherTexture = Resources.Load<Texture2D>("Art/TikatookaCupLeather");
+            titleBackdropTexture = Resources.Load<Texture2D>("Art/TikatookaTitleBackdropV1");
+            titleCrestTexture = Resources.Load<Texture2D>("Art/TikatookaTitleCrestV1");
 
             if (boardPatternTexture != null)
             {
@@ -4970,6 +6145,49 @@ namespace Tikatooka
             if (panelParchmentTexture != null)
             {
                 panelParchmentSprite = CreateSpriteFromTexture(panelParchmentTexture, "Tikatooka Panel Parchment Sprite", 256f);
+            }
+
+            if (playerBoardPanelTexture != null)
+            {
+                playerBoardPanelSprite = CreateSpriteFromTexture(playerBoardPanelTexture, "Tikatooka Board Panel V2 Sprite", 256f);
+            }
+
+            if (playerOnePlaymatTexture != null)
+            {
+                playerOnePlaymatSprite = CreateSpriteFromTexture(playerOnePlaymatTexture, "Tikatooka Player One Playmat V1 Sprite", 256f);
+            }
+
+            if (playerTwoPlaymatTexture != null)
+            {
+                playerTwoPlaymatSprite = CreateSpriteFromTexture(playerTwoPlaymatTexture, "Tikatooka Player Two Playmat V1 Sprite", 256f);
+            }
+
+            if (gameplayTableauTexture != null)
+            {
+                gameplayTableauSprite = CreateSpriteFromTexture(gameplayTableauTexture, "Tikatooka Gameplay Tableau V2 Sprite", 100f);
+            }
+
+            if (playerHeaderTexture != null)
+            {
+                playerHeaderSprite = CreateSpriteFromTexture(playerHeaderTexture, "Tikatooka Player Header V1 Sprite", 100f);
+            }
+
+            if (playerStatusHeaderTexture != null)
+            {
+                playerStatusHeaderSprite = CreateSpriteFromTexture(
+                    playerStatusHeaderTexture,
+                    "Tikatooka Player Status Header V1 Sprite",
+                    100f);
+            }
+
+            if (playerProgressRailTexture != null)
+            {
+                playerProgressRailSprite = CreateSpriteFromTexture(playerProgressRailTexture, "Tikatooka Player Progress Rail V1 Sprite", 100f);
+            }
+
+            if (scoreHeaderTexture != null)
+            {
+                scoreHeaderSprite = CreateSpriteFromTexture(scoreHeaderTexture, "Tikatooka Score Header V1 Sprite", 100f);
             }
 
             if (mainBoardBackdropTexture != null)
@@ -4992,11 +6210,45 @@ namespace Tikatooka
                     0.28f);
             }
 
+            if (turnStatusPlaqueTexture != null)
+            {
+                turnStatusPlaqueSprite = CreateSlicedSpriteFromTexture(
+                    turnStatusPlaqueTexture,
+                    "Tikatooka Turn Status Plaque V1 Sprite",
+                    100f,
+                    0.08f,
+                    0.20f);
+            }
+
+            if (gameplayActionTrayTexture != null)
+            {
+                gameplayActionTraySprite = CreateSpriteFromTexture(
+                    gameplayActionTrayTexture,
+                    "Tikatooka Gameplay Action Tray V3 Sprite",
+                    100f);
+            }
+
+            if (matchScoreHudTexture != null)
+            {
+                matchScoreHudSprite = CreateSpriteFromTexture(
+                    matchScoreHudTexture,
+                    "Tikatooka Match Score HUD V2 Sprite",
+                    100f);
+            }
+
+            if (drawnDieHudTexture != null)
+            {
+                drawnDieHudSprite = CreateSpriteFromTexture(
+                    drawnDieHudTexture,
+                    "Tikatooka Drawn Die HUD V2 Sprite",
+                    100f);
+            }
+
             if (buttonPrimaryTexture != null)
             {
                 buttonPrimarySprite = CreateSlicedSpriteFromTexture(
                     buttonPrimaryTexture,
-                    "Tikatooka Primary Button V1 Sprite",
+                    "Tikatooka Primary Button V4 Sprite",
                     100f,
                     0.16f,
                     0.24f);
@@ -5016,7 +6268,7 @@ namespace Tikatooka
             {
                 buttonPvpSprite = CreateSlicedSpriteFromTexture(
                     buttonPvpTexture,
-                    "Tikatooka PVP Button V1 Sprite",
+                    "Tikatooka PVP Button V4 Sprite",
                     100f,
                     0.16f,
                     0.24f);
@@ -5026,7 +6278,7 @@ namespace Tikatooka
             {
                 buttonPveSprite = CreateSlicedSpriteFromTexture(
                     buttonPveTexture,
-                    "Tikatooka PVE Button V1 Sprite",
+                    "Tikatooka PVE Button V3 Sprite",
                     100f,
                     0.16f,
                     0.24f);
@@ -5057,6 +6309,22 @@ namespace Tikatooka
                     "Tikatooka Dice Face V3 Sprite",
                     100f,
                     new Rect(0.079f, 0.076f, 0.84f, 0.847f));
+            }
+
+            if (titleBackdropTexture != null)
+            {
+                titleBackdropSprite = CreateSpriteFromTexture(
+                    titleBackdropTexture,
+                    "Tikatooka Title Backdrop V1 Sprite",
+                    100f);
+            }
+
+            if (titleCrestTexture != null)
+            {
+                titleCrestSprite = CreateSpriteFromTexture(
+                    titleCrestTexture,
+                    "Tikatooka Title Crest V1 Sprite",
+                    100f);
             }
         }
 

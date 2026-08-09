@@ -412,7 +412,7 @@ GameObject:
   - component: {fileID: 2049260927}
   - component: {fileID: 2049260926}
   m_Layer: 0
-  m_Name: Dice Board Game
+  m_Name: Dice Dominion Game
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
